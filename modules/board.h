@@ -2,12 +2,19 @@
 #define BOARD_H
 
 #include "module.h"
+#include "model.h"
+
+#include <QMap>
+
+class BoardModel : public Model
+{
+    DECLARE_MODEL(Board, BoardModel)
+};
 
 class Board : public Module
 {
-    Q_OBJECT
+    DECLARE_BOT_MODULE(Board)
 public:
-    explicit Board();
     void onNewMessage(BInputMessage message);
 
 signals:

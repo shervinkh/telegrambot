@@ -8,6 +8,22 @@
 
 class Bot;
 
+#define DECLARE_BOT_MODULE(name) \
+    public: \
+        static name *instance() { \
+            if (!mInstance) \
+                mInstance = new name(); \
+            return mInstance; \
+        } \
+    private: \
+        name(); \
+        static name *mInstance;
+
+#define DEFINE_BOT_MODULE(name) \
+    name *name::mInstance = Q_NULLPTR;
+
+#define BOT_MODULE(name) name::instance()
+
 #define logDebug() qCDebug(mLoggingCategory)
 #define logInfo() qCInfo(mLoggingCategory)
 #define logWarning() qCWarning(mLoggingCategory)
@@ -21,6 +37,8 @@ private:
     const qint64 mVersion;
 
     Bot *mBot;
+
+    const QByteArray mLoggingCategoryName;
 
 protected:
     QLoggingCategory mLoggingCategory;

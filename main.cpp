@@ -7,7 +7,6 @@
 #include <telegram.h>
 
 #include <QCoreApplication>
-#include <QDebug>
 
 int main(int argc, char *argv[])
 {
@@ -25,7 +24,7 @@ int main(int argc, char *argv[])
     Redis redis;
 
     Bot bot(&database, &redis);
-    bot.addModule(new Board());
+    bot.addModule(BOT_MODULE(Board));
     bot.init();
 
     return app.exec();
