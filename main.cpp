@@ -2,7 +2,7 @@
 #include "database.h"
 #include "redis.h"
 #include "signalhandler.h"
-#include "modules/board.h"
+#include "modules/board/board.h"
 
 #include <telegram.h>
 
@@ -18,13 +18,13 @@ int main(int argc, char *argv[])
     app.setApplicationVersion("0.1");
 
     qputenv("QT_LOGGING_RULES", "tg.*=false");
-    qputenv("QT_LOGGING_RULES", "tg.*=false\nbot.*.debug=false");
+    //qputenv("QT_LOGGING_RULES", "tg.*=false\nbot.*.debug=false");
 
     Database database;
     Redis redis;
 
     Bot bot(&database, &redis);
-    bot.addModule(BOT_MODULE(Board));
+    bot.addModule(MODULE(Board));
     bot.init();
 
     return app.exec();

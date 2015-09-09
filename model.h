@@ -1,25 +1,49 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#include <QObject>
-#include <QMap>
-#include <QVariant>
+#include "module.h"
 
-#define DECLARE_MODEL(module, name) \
+#include <QObject>
+#include <QSharedPointer>
+
+#define DECLARE_MODEL(klass, m_name) \
 public: \
-    static name *sharedInstance() \
+    Q_INVOKABLE QString name() const { return #m_name; } \
+    void save() \
+    { \
+        if (mModule) \
+            mModule->saveModelObject(this); \
+    } \
+    void deleteObject() \
+    { \
+        if (mModule) \
+            mModule->deleteModelObject(this); \
+    } \
+    typedef QSharedPointer<klass> PointerType; \
+    PointerType newInstance() \
+    { \
+        klass *newObject = new klass(); \
+        newObject->setModule(mModule); \
+        return QSharedPointer<klass>(newObject); \
+    } \
+    static klass *sharedInstance() \
     { \
         if (!mSharedInstance) \
-            mSharedInstance = new name(); \
+            mSharedInstance = new klass(); \
         return mSharedInstance; \
     } \
+    Q_INVOKABLE void setModule(Module *module) \
+    { \
+        mModule = module; \
+    } \
 private: \
-    name() : Model(#module, #name) {} \
-    static name *mSharedInstance;
+    klass() : QObject(Q_NULLPTR), mModule(Q_NULLPTR), m_id(-1) {} \
+    static klass *mSharedInstance; \
+    Module *mModule;
 
-#define DEFINE_MODEL(module, name) name *name::mSharedInstance = Q_NULLPTR;
+#define DEFINE_MODEL(name) name *name::mSharedInstance = Q_NULLPTR;
 
-#define DECLARE_MODEL_FIELD(type, member, ...) \
+#define DECLARE_MODEL_FIELD(type, member) \
 public: \
     void set_##member(type _##member) \
     { \
@@ -29,38 +53,10 @@ public: \
     { \
         return m_##member;\
     } \
-    Q_INVOKABLE Properties get_##member##_properties() const\
-    { \
-        return makeProperties(__VA_ARGS__); \
-    } \
 private: \
     type m_##member; \
     Q_PROPERTY(type member READ get_##member WRITE set_##member)
 
-class Model : public QObject
-{
-    Q_OBJECT
-private:
-    const QString mModuleName;
-    const QString mName;
-
-    typedef QMap<QString, QVariant> Properties;
-
-    static Properties makeProperties();
-
-    template<typename... Types>
-    static Properties makeProperties(QString key, QVariant value, Types... rest)
-    {
-        Properties result = makeProperties(rest...);
-        result[key] = value;
-        return result;
-    }
-
-public:
-    Model(const QString &moduleName, const QString &name);
-    virtual ~Model() = 0;
-
-    QMap<QString, QVariant> getFieldProperties(const QString &field);
-};
+#define MODEL(klass) klass::sharedInstance()
 
 #endif // MODEL_H

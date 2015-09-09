@@ -15,8 +15,6 @@ class Database : public QObject
 {
     Q_OBJECT
 private:
-    const QString mTablePrefix;
-
     QSqlDatabase mDatabase;
     QMutex *mMutex;
 
@@ -25,6 +23,7 @@ public:
     ~Database();
 
     void execute(QSqlQuery &query);
+    void execute(const QString &query);
 };
 
 #endif // DATABASE_H

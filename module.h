@@ -2,27 +2,30 @@
 #define MODULE_H
 
 #include "binputmessage.h"
+#include "botutils.h"
 
 #include <QObject>
+#include <QVariant>
+#include <QSqlQuery>
 #include <QLoggingCategory>
 
 class Bot;
 
-#define DECLARE_BOT_MODULE(name) \
-    public: \
-        static name *instance() { \
-            if (!mInstance) \
-                mInstance = new name(); \
-            return mInstance; \
-        } \
-    private: \
-        name(); \
-        static name *mInstance;
+#define DECLARE_MODULE(name) \
+public: \
+    static name *instance() { \
+        if (!mInstance) \
+            mInstance = new name(); \
+        return mInstance; \
+    } \
+private: \
+    name(); \
+    static name *mInstance;
 
-#define DEFINE_BOT_MODULE(name) \
+#define DEFINE_MODULE(name) \
     name *name::mInstance = Q_NULLPTR;
 
-#define BOT_MODULE(name) name::instance()
+#define MODULE(name) name::instance()
 
 #define logDebug() qCDebug(mLoggingCategory)
 #define logInfo() qCInfo(mLoggingCategory)
@@ -35,15 +38,14 @@ class Module : public QObject
 private:
     const QString mName;
     const qint64 mVersion;
-
-    Bot *mBot;
-
     const QByteArray mLoggingCategoryName;
 
 protected:
+    Bot *mBot;
     QLoggingCategory mLoggingCategory;
 
-    void sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo);
+    virtual void ensureDatabase() {}
+    void registerModel(QObject *model);
 
 public:
     explicit Module(const QString name, const qint64 version, QObject *parent = Q_NULLPTR);
@@ -57,6 +59,11 @@ public:
 
     virtual void init() {}
     virtual void onNewMessage(BInputMessage message) { Q_UNUSED(message); }
+
+    //Model Interface
+    QString getModelDatabaseTable(QObject *object);
+    void saveModelObject(QObject *object);
+    void deleteModelObject(QObject *object);
 
 public slots:
 

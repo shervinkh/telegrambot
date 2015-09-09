@@ -25,3 +25,8 @@ quint64 BotUtils::secureRandomLong()
 
     return result;
 }
+
+QList<QVariant> BotUtils::convertArgsToList()
+{
+    return QList<QVariant>();
+}

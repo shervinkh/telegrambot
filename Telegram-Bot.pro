@@ -25,8 +25,7 @@ SOURCES += main.cpp \
     database.cpp \
     botutils.cpp \
     redis.cpp \
-    modules/board.cpp \
-    model.cpp
+    modules/board/board.cpp
 
 HEADERS += \
     bot.h \
@@ -36,7 +35,8 @@ HEADERS += \
     database.h \
     botutils.h \
     redis.h \
-    modules/board.h \
+    modules/board/board.h \
+    modules/board/boardmodel.h \
     model.h
 
 LIBS += -lssl -lcrypto -lz -lqtelegram-ae -lhiredis

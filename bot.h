@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QMap>
 #include <QLoggingCategory>
+#include <QSqlQuery>
 
 class Database;
 class Redis;
@@ -66,6 +67,9 @@ public:
     Database *database() { return mDatabase; }
 
     //Module Interface
+    void executeDatabaseQuery(const QString &query);
+    void executeDatabaseQuery(QSqlQuery &query);
+    const QList<Module *> &installedModules() {return mModules;}
     void sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo);
 
 public slots:

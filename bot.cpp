@@ -484,10 +484,10 @@ void Bot::addModule(Module *module)
 void Bot::init()
 {
     foreach (Module *module, mModules)
-    {
         module->internalInit();
+
+    foreach (Module *module, mModules)
         module->init();
-    }
 
     mTelegram->init();
 }
@@ -495,6 +495,16 @@ void Bot::init()
 //End Module System
 
 //Start Module Interface
+void Bot::executeDatabaseQuery(QSqlQuery &query)
+{
+    mDatabase->execute(query);
+}
+
+void Bot::executeDatabaseQuery(const QString &query)
+{
+    mDatabase->execute(query);
+}
+
 void Bot::sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo)
 {
     InputPeer peer;
