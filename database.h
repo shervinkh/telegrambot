@@ -23,7 +23,7 @@ public:
     ~Database();
 
     void execute(QSqlQuery &query);
-    void execute(const QString &query);
+    QSqlQuery execute(const QString &query);
 };
 
 #endif // DATABASE_H

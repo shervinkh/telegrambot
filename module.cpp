@@ -1,13 +1,14 @@
 #include "module.h"
+#include "botinterface.h"
 #include "bot.h"
 #include <QMetaProperty>
 
 Module::Module(const QString name, const qint64 version, QObject *parent)
     : QObject(parent), mName(name.toLower()), mVersion(version),
-      mLoggingCategoryName(QByteArray("bot.module.").append(mName)),
+      mLoggingCategoryName(QByteArray("bot.modules.").append(mName)),
       mBot(Q_NULLPTR), mLoggingCategory(mLoggingCategoryName.data())
 {
-
+    mRedis = new Redis(QString("modules.%1").arg(mName), this);
 }
 
 Module::~Module()
@@ -32,7 +33,7 @@ QString Module::getModelDatabaseTable(QObject *object)
     return QString("bot_modules_%1_%2s").arg(mName).arg(modelName);
 }
 
-void Module::saveModelObject(QObject *object)
+int Module::saveModelObject(QObject *object)
 {
     qint64 pk = object->property("id").toLongLong();
     QSqlQuery query;
@@ -63,9 +64,11 @@ void Module::saveModelObject(QObject *object)
         foreach (QVariant value, values)
             query.addBindValue(value);
 
-        mBot->executeDatabaseQuery(query);
+        interface()->executeDatabaseQuery(query);
 
         object->setProperty("id", query.lastInsertId().toLongLong());
+
+        return BotUtils::getNumRowsAffected(query);
     }
     else
     {
@@ -85,11 +88,13 @@ void Module::saveModelObject(QObject *object)
 
         query.addBindValue(object->property("id"));
 
-        mBot->executeDatabaseQuery(query);
+        interface()->executeDatabaseQuery(query);
+
+        return BotUtils::getNumRowsAffected(query);
     }
 }
 
-void Module::deleteModelObject(QObject *object)
+int Module::deleteModelObject(QObject *object)
 {
     qint64 pk = object->property("id").toLongLong();
     QSqlQuery query;
@@ -99,6 +104,15 @@ void Module::deleteModelObject(QObject *object)
         query.prepare(QString("DELETE FROM %1 WHERE id=?").arg(getModelDatabaseTable(object)));
         query.addBindValue(pk);
 
-        mBot->executeDatabaseQuery(query);
+        interface()->executeDatabaseQuery(query);
+
+        return BotUtils::getNumRowsAffected(query);
     }
+
+    return 0;
+}
+
+QString Module::getCacheKey(const QString &key)
+{
+    return QString("bot:modules:%1:%2").arg(mName).arg(key);
 }

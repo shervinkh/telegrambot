@@ -30,3 +30,13 @@ QList<QVariant> BotUtils::convertArgsToList()
 {
     return QList<QVariant>();
 }
+
+int BotUtils::getNumRowsAffected(const QSqlQuery &query)
+{
+    int rawVal = query.numRowsAffected();
+
+    if (rawVal == -1)
+        return 0;
+
+    return rawVal;
+}

@@ -1,28 +1,36 @@
 #include "redis.h"
 #include <QtCore>
 
-Q_LOGGING_CATEGORY(BOT_REDIS, "bot.redis")
+redisContext *Redis::redisConnection = Q_NULLPTR;
 
-Redis::Redis(QObject *parent)
-    : QObject(parent), mConnection(Q_NULLPTR)
+Redis::Redis(const QString &name, QObject *parent)
+    : QObject(parent), mName(name), mLoggingCategoryName(QByteArray("bot.redis.").append(mName)),
+      mLoggingCategory(mLoggingCategoryName.data())
 {
-    reconnectRedis();
+}
+
+redisContext *Redis::redis()
+{
+    if (!redisConnection)
+        reconnectRedis();
+
+    return redisConnection;
 }
 
 void Redis::reconnectRedis()
 {
-    if (mConnection != Q_NULLPTR)
-        redisFree(mConnection);
+    if (redisConnection != Q_NULLPTR)
+        redisFree(redisConnection);
 
-    mConnection = redisConnectUnix("/tmp/redis.sock");
-    if (mConnection == Q_NULLPTR || mConnection->err)
-        qFatal("Couldn't connect to redis: %s", mConnection->errstr);
+    redisConnection = redisConnectUnix("/tmp/redis.sock");
+    if (redisConnection == Q_NULLPTR || redisConnection->err)
+        qFatal("Couldn't connect to redis: %s", redisConnection->errstr);
 }
 
 void Redis::postExecute(redisReply *reply)
 {
     freeReplyObject(reply);
-    if (mConnection->err)
+    if (redisConnection->err)
         reconnectRedis();
 }
 
@@ -31,7 +39,7 @@ QVariant Redis::processReply(redisReply *reply, bool first)
     QVariant result;
 
     if (reply == Q_NULLPTR)
-        qCCritical(BOT_REDIS) << "Redis Error: " << mConnection->errstr << endl << flush;
+        qCCritical(mLoggingCategory) << "Redis Error: " << redisConnection->errstr << endl << flush;
     else if (reply->type == REDIS_REPLY_STATUS)
         result = reply->str;
     else if (reply->type == REDIS_REPLY_INTEGER)
@@ -41,7 +49,7 @@ QVariant Redis::processReply(redisReply *reply, bool first)
     else if (reply->type == REDIS_REPLY_NIL)
         result = QVariant();
     else if (reply->type == REDIS_REPLY_ERROR)
-        qCCritical(BOT_REDIS) << "Redis Error: " << reply->str << endl << flush;
+        qCCritical(mLoggingCategory) << "Redis Error: " << reply->str << endl << flush;
     else if (reply->type == REDIS_REPLY_ARRAY)
     {
         QList<QVariant> innerResult;
@@ -55,64 +63,105 @@ QVariant Redis::processReply(redisReply *reply, bool first)
     return result;
 }
 
+QByteArray Redis::getActualKey(const QString &key)
+{
+    return QString("bot.%1.%2").arg(mName).arg(key).toLocal8Bit();
+}
+
+QVariant Redis::variadicCommand(const QString &command, const QString &key, const QList<QVariant> &values)
+{
+    QList<QByteArray> stringValues;
+    stringValues.append(command.toLocal8Bit());
+    stringValues.append(getActualKey(key));
+    foreach (QVariant val, values)
+        stringValues.append(val.toString().toLocal8Bit());
+
+    const char **argv = new const char *[stringValues.size()];
+    size_t *argvlen = new size_t[stringValues.size()];
+
+    for (int i = 0; i < stringValues.size(); i++)
+    {
+        argv[i] = stringValues[i].data();
+        argvlen[i] = stringValues[i].size();
+    }
+
+    redisReply *reply = (redisReply *) redisCommandArgv(redis(), stringValues.size(), argv, argvlen);
+    delete [] argvlen;
+    delete [] argv;
+    return processReply(reply);
+}
+
+QVariant Redis::exists(const QString &key)
+{
+    return command("EXISTS", key);
+}
+
 QVariant Redis::get(const QString &key)
 {
-    redisReply *reply = (redisReply *) redisCommand(mConnection, "GET %s", key.toStdString().c_str());
-    return processReply(reply);
+    return command("GET", key);
 }
 
 QVariant Redis::set(const QString &key, const QVariant &value, int ttl, bool ifNotExists, bool ifExists)
 {
-    QString ttlString = (ttl > 0) ? QString(" EX %1").arg(ttl) : "";
-    QString existString = (ifNotExists && !ifExists) ? " NX" : ((!ifNotExists && ifExists) ? " XX" : "");
-    redisReply *reply = (redisReply *) redisCommand(mConnection,
-                                                    QString("SET %s %s%1%2").arg(ttlString).arg(existString).toStdString().c_str(),
-                                                    key.toStdString().c_str(),
-                                                    value.toString().toStdString().c_str());
-    return processReply(reply);
+    QList<QVariant> args;
+
+    args.append(value);
+
+    if (ttl > 0)
+    {
+        args.append("EX");
+        args.append(ttl);
+    }
+
+    if (ifNotExists && !ifExists)
+        args.append("NX");
+    else if (!ifNotExists && ifExists)
+        args.append("XX");
+
+    return variadicCommand("SET", key, args);
 }
 
 QVariant Redis::del(const QString &key)
 {
-    redisReply *reply = (redisReply *) redisCommand(mConnection, "DEL %s", key.toStdString().c_str());
-    return processReply(reply);
+    return command("DEL", key);
 }
 
 QVariant Redis::incr(const QString &key, int by)
 {
-    redisReply *reply = (redisReply *) redisCommand(mConnection, "INCRBY %s %lld", key.toStdString().c_str(), by);
-    return processReply(reply);
+    return command("INCRBY", key, by);
 }
 
 QVariant Redis::decr(const QString &key, int by)
 {
-    redisReply *reply = (redisReply *) redisCommand(mConnection, "DECRBY %s %lld", key.toStdString().c_str(), by);
-    return processReply(reply);
+    return command("DECRBY", key, by);
 }
 
 QVariant Redis::sadd(const QString &key, const QVariant &value)
 {
-    redisReply *reply = (redisReply *) redisCommand(mConnection, "SADD %s %s",
-                                                    key.toStdString().c_str(), value.toString().toStdString().c_str());
-    return processReply(reply);
+    return command("SADD", key, value);
+}
+
+QVariant Redis::sadd(const QString &key, const QList<QVariant> &values)
+{
+    return variadicCommand("SADD", key, values);
+}
+
+QVariant Redis::scard(const QString &key)
+{
+    return command("SCARD", key);
 }
 
 QVariant Redis::smembers(const QString &key)
 {
-    redisReply *reply = (redisReply *) redisCommand(mConnection, "SMEMBERS %s", key.toStdString().c_str());
-    return processReply(reply);
+    return command("SMEMBERS", key);
 }
 
 QVariant Redis::hset(const QString &key, const QString &field, const QVariant &value)
 {
-    redisReply *reply = (redisReply *) redisCommand(mConnection, "HSET %s %s %s", key.toStdString().c_str(),
-                                                    field.toStdString().c_str(), value.toString().toStdString().c_str());
-    return processReply(reply);
+    return command("HSET", key, field, value);
 }
 
 QVariant Redis::hget(const QString &key, const QString &field)
 {
-    redisReply *reply = (redisReply *) redisCommand(mConnection, "HGET %s %s", key.toStdString().c_str(),
-                                                    field.toStdString().c_str());
-    return processReply(reply);
+    return command("HGET", key, field);
 }

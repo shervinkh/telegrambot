@@ -17,19 +17,19 @@ private:
     qint64 mReplyFromId;
     qint64 mReplyFromUser;
     QString mReplyFromMessage;
+    int mMessageMediaType;
 
 public:
     BInputMessage();
     BInputMessage(qint64 id, qint64 userId, qint64 chatId, qint64 date, const QString &message,
-                  qint64 forwardedFrom, qint64 forwardedDate, qint64 replyFromId);
+                  qint64 forwardedFrom, qint64 forwardedDate, qint64 replyFromId, int messageMediaType);
 
-    void setReplyData(qint64 replyUser, const QString &replyMessage)
-    {
-        mReplyFromUser = replyUser;
-        mReplyFromMessage = replyMessage;
-    }
+    QStringList getArgumentsArray();
+    QString getStringFromArgument(int whichArgument);
 
-    qint64 Id() const { return mId; }
+    void setReplyData(qint64 replyUser, const QString &replyMessage);
+
+    qint64 id() const { return mId; }
     qint64 userId() const { return mUserId; }
     qint64 chatId() const { return mChatId; }
     QDateTime date() const { return mDate; }
@@ -39,6 +39,7 @@ public:
     qint64 replyFromId() const { return mReplyFromId; }
     qint64 replyFromUser() const { return mReplyFromUser; }
     QString replyFromMessage() const { return mReplyFromMessage; }
+    int messageMediaType() const { return mMessageMediaType; }
 };
 
 #endif // BMESSAGE_H

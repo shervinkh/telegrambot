@@ -3,6 +3,7 @@
 
 #include <QByteArray>
 #include <QVariant>
+#include <QSqlQuery>
 
 class BotUtils
 {
@@ -19,6 +20,8 @@ public:
         result.prepend(value);
         return result;
     }
+
+    static int getNumRowsAffected(const QSqlQuery &query);
 };
 
 #endif // BOTUTILS_H

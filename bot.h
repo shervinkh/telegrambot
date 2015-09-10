@@ -2,6 +2,7 @@
 #define BOT_H
 
 #include "binputmessage.h"
+#include "bot.h"
 
 #include <telegram.h>
 
@@ -13,6 +14,7 @@
 class Database;
 class Redis;
 class Module;
+class BotInterface;
 
 Q_DECLARE_LOGGING_CATEGORY(BOT_CORE)
 
@@ -21,6 +23,9 @@ class Bot : public QObject
     Q_OBJECT
 private:
     static const int METADATA_UPDATE_SLICE;
+    friend class BotInterface;
+
+    BotInterface *mBotInterface;
 
     Telegram *mTelegram;
     QTextStream input, output;
@@ -61,22 +66,18 @@ private:
     Redis *mRedis;
 
 public:
-    explicit Bot(Database *database, Redis *redis, QObject *parent = 0);
+    explicit Bot(Database *database, QObject *parent = 0);
     void addModule(Module *module);
     void init();
     Database *database() { return mDatabase; }
-
-    //Module Interface
-    void executeDatabaseQuery(const QString &query);
-    void executeDatabaseQuery(QSqlQuery &query);
-    const QList<Module *> &installedModules() {return mModules;}
-    void sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo);
+    BotInterface *interface() { return mBotInterface; }
 
 public slots:
     //Auth
     void onAuthNeeded();
     void onAuthCheckPhoneAnswer(qint64 id, bool phoneRegistered);
     void onAuthSendCodeAnswer(qint64 id, bool phoneRegistered, qint32 sendCallTimeout);
+    void onAuthSignInError(qint64 id, qint32 errorCode, const QString &errorText);
     void onAuthLoggedIn();
 
     //Messages

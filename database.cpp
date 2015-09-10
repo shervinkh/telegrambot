@@ -27,14 +27,14 @@ void Database::execute(QSqlQuery &query)
     QMutexLocker mutexLocker(mMutex);
     Q_UNUSED(mutexLocker);
 
-    qCDebug(BOT_DATABASE) << "Executing Query: " << query.lastQuery();
-
     if (!query.exec())
         qCCritical(BOT_DATABASE) << "Sql Error: " << query.executedQuery() << endl
                                  << query.lastError().text() << endl << flush;
+
+    qCDebug(BOT_DATABASE) << "Executed Query: " << query.lastQuery() << query.lastInsertId() << query.numRowsAffected();
 }
 
-void Database::execute(const QString &query)
+QSqlQuery Database::execute(const QString &query)
 {
     QMutexLocker mutexLocker(mMutex);
     Q_UNUSED(mutexLocker);
@@ -43,4 +43,8 @@ void Database::execute(const QString &query)
     if (!sqlQuery.exec(query))
         qCCritical(BOT_DATABASE) << "Sql Error: " << query << endl
                                  << sqlQuery.lastError().text() << endl << flush;
+
+    qCDebug(BOT_DATABASE) << "Executed Query: " << sqlQuery.lastQuery() << sqlQuery.lastInsertId() << sqlQuery.numRowsAffected();
+
+    return sqlQuery;
 }

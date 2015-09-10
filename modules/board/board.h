@@ -10,14 +10,16 @@ class Board : public Module
     DECLARE_MODULE(Board)
 
 private:
-    void createBoard(qint64 gid, const QString &name);
-    void deleteBoard(qint64 gid, const QString &name);
-    QList<QString> getBoards(qint64 gid);
     qint64 getBoard(qint64 gid, const QString &name);
+    QStringList getBoards(qint64 gid);
 
-    void addBoardItem(qint64 board_id, const QString &content);
-    void deleteBoardItem(qint64 board_id, int idx);
-    QList<QString> getBoardItems(qint64 board_id);
+    QString fCreateBoard(qint64 gid, const QString &name, qint64 created_by, const QDateTime &created_on);
+    QString fDeleteBoard(qint64 gid, const QString &name);
+    QString fGetBoards(qint64 gid);
+
+    QString fAddBoardItem(qint64 board_id, const QString &content, qint64 created_by, const QDateTime &created_on);
+    QString fDeleteBoardItem(qint64 board_id, int idx);
+    QString fGetBoardItems(qint64 board_id);
 
 protected:
     void ensureDatabase();

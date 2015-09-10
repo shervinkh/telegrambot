@@ -2,28 +2,31 @@
 #include "database.h"
 #include "redis.h"
 #include "module.h"
-#include "botutils.h"
+#include "botinterface.h"
 #include <QtCore>
 
 const int Bot::METADATA_UPDATE_SLICE = 100;
 
 Q_LOGGING_CATEGORY(BOT_CORE, "bot.core")
 
-Bot::Bot(Database *database, Redis *redis, QObject *parent)
-    : QObject(parent), input(stdin), output(stdout), mDatabase(database), mRedis(redis)
+Bot::Bot(Database *database, QObject *parent)
+    : QObject(parent), input(stdin), output(stdout), mDatabase(database)
 {
     mCurrentOperation = None;
     mLoggedIn = false;
+    mRedis = new Redis("core");
+    mBotInterface = new BotInterface(this, this);
 
     //FIXME: Change 40->50 in production
     mTelegram = new Telegram("149.154.167.50", 443, 2, 39006, "034ac9bc16b9b1dbae4e3f846e9f5dd9",
-                            "+989212823848", "~/.telegrambot", "tg.pub");
+                            "+989025484622", "~/.telegrambot", "tg.pub");
 
     //Auth
     connect(mTelegram, &Telegram::authNeeded, this, &Bot::onAuthNeeded);
     connect(mTelegram, &Telegram::authCheckPhoneAnswer, this, &Bot::onAuthCheckPhoneAnswer);
     connect(mTelegram, &Telegram::authSendCodeAnswer, this, &Bot::onAuthSendCodeAnswer);
     connect(mTelegram, &Telegram::authLoggedIn, this, &Bot::onAuthLoggedIn);
+    connect(mTelegram, &Telegram::authSignInError, this, &Bot::onAuthSignInError);
 
     //Messages
     connect(mTelegram, &Telegram::messagesGetMessagesAnswer, this, &Bot::onMessagesGetMessagesAnswer);
@@ -65,14 +68,14 @@ void Bot::updateUserGroupLinks()
 
     QList<QVariant> users = mRedis->smembers("users").toList();
     foreach (QVariant uid, users)
-        mRedis->del(QString("user#%1:groups").arg(uid.toLongLong()));
+        mRedis->del(QString("user#%1.groups").arg(uid.toLongLong()));
 
     QList<QVariant> groups = mRedis->smembers("groups").toList();
     mLinkdataCount = groups.size();
 
     foreach (QVariant gid, groups)
     {
-        mRedis->del(QString("chat#%1:users").arg(gid.toLongLong()));
+        mRedis->del(QString("chat#%1.users").arg(gid.toLongLong()));
         mTelegram->messagesGetFullChat(gid.toLongLong());
     }
 }
@@ -111,11 +114,11 @@ void Bot::getChatParticipantsData(const ChatParticipants &chatParticipants)
         QString chatDataKey = QString("chat#%1").arg(chatId);
         mRedis->hset(chatDataKey, "admin", chatParticipants.adminId());
 
-        QString chatMembersDataKey = QString("chat#%1:users").arg(chatId);
+        QString chatMembersDataKey = QString("chat#%1.users").arg(chatId);
         foreach (ChatParticipant chatParticipant, chatParticipants.participants())
         {
             mRedis->hset(chatMembersDataKey, QString::number(chatParticipant.userId()), chatParticipant.inviterId());
-            mRedis->sadd(QString("user#%1:groups").arg(chatParticipant.userId()), chatId);
+            mRedis->sadd(QString("user#%1.groups").arg(chatParticipant.userId()), chatId);
         }
     }
 }
@@ -163,21 +166,24 @@ void Bot::onAuthLoggedIn()
     mTelegram->accountRegisterDevice(QCoreApplication::applicationName(), QCoreApplication::applicationVersion());
     updateMetadata();
 }
+
+void Bot::onAuthSignInError(qint64 id, qint32 errorCode, const QString &errorText)
+{
+    Q_UNUSED(id);
+
+    qCWarning(BOT_CORE) << "SignInError happened: " << errorCode << errorText;
+}
+
 //End Auth
 
 //Start Messages
 void Bot::onMessagesGetMessagesAnswer(qint64 id, qint32 sliceCount, const QList<Message> &messages,
                                       const QList<Chat> &chats, const QList<User> &users)
 {
-    qCDebug(BOT_CORE) << "Messages Get Answer: id=" << id << ", sliceCount=" << sliceCount;
-    foreach (Message message, messages)
-        qCDebug(BOT_CORE) << "Message: id=" << message.id() << ", message=" << message.message();
-
-    foreach (Chat chat, chats)
-        qCDebug(BOT_CORE) << "Chat id=" << chat.id() << ", name=" << chat.title();
-
-    foreach (User user, users)
-        qCDebug(BOT_CORE) << "User id=" << user.id() << ", name=" << user.firstName() << " " << user.lastName();
+    Q_UNUSED(id)
+    Q_UNUSED(sliceCount)
+    Q_UNUSED(chats)
+    Q_UNUSED(users)
 
     if (!messages.isEmpty())
     {
@@ -244,7 +250,8 @@ void Bot::onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const
 void Bot::onError(qint64 id, qint32 errorCode, QString errorText)
 {
     Q_UNUSED(id);
-    Q_UNUSED(errorText);
+
+    qCWarning(BOT_CORE) << "Telegram Error happened: " << errorCode << errorText;
 
     if (mCurrentOperation == AuthCheckPhone && errorCode == 400)
         qFatal("Invalid phone number.");
@@ -288,7 +295,15 @@ void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats,
 
         qCDebug(BOT_CORE) << "--Update: class=" << updateCode(update.classType()) << ", chatId=" << update.chatId() <<
                   ", userId=" << update.userId() << ", message=" << update.message().message() << ' '<<
-                  ", type=" << type << ", len=" << update.message().media().bytes().length();
+                  ", type=" << type << ", len=" << update.message().media().bytes().length() << ", id=" << update.message().id();
+
+        if (update.classType() == Update::typeUpdateNewMessage)
+        {
+            Message message = update.message();
+            BInputMessage newMessage(message.id(), message.fromId(), update.chatId(), message.date(), message.message(), message.fwdFromId(),
+                                     message.fwdDate(), message.replyToMsgId(), message.media().classType());
+            eventNewMessage(newMessage);
+        }
     }
 
     foreach (Chat chat, chats)
@@ -337,11 +352,8 @@ void Bot::onUpdateShortMessage(qint32 id, qint32 userid, const QString &message,
               fwd_from_id << ", fwd_date=" << fwd_date << ", reply_to_msg_id=" << reply_to_msg_id <<
               ", unread=" << unread << ", out=" << out;
 
-    BInputMessage newMessage(id, userid, 0, date, message, fwd_from_id, fwd_date, reply_to_msg_id);
-    if (newMessage.replyFromId() != 0)
-        resolveReplyFrom(newMessage);
-    else
-        eventNewMessage(newMessage);
+    BInputMessage newMessage(id, userid, 0, date, message, fwd_from_id, fwd_date, reply_to_msg_id, MessageMedia::typeMessageMediaEmpty);
+    eventNewMessage(newMessage);
 }
 
 void Bot::onUpdateShortChatMessage(qint32 id, qint32 fromId, qint32 chatId, const QString &message,
@@ -353,11 +365,8 @@ void Bot::onUpdateShortChatMessage(qint32 id, qint32 fromId, qint32 chatId, cons
               date << ", fwd_from_id=" << fwd_from_id << ", fwd_date=" << fwd_date << ", reply_to_msg_id=" <<
               reply_to_msg_id << ", unread=" << unread << ", out=" << out;
 
-    BInputMessage newMessage(id, fromId, chatId, date, message, fwd_from_id, fwd_date, reply_to_msg_id);
-    if (newMessage.replyFromId() != 0)
-        resolveReplyFrom(newMessage);
-    else
-        eventNewMessage(newMessage);
+    BInputMessage newMessage(id, fromId, chatId, date, message, fwd_from_id, fwd_date, reply_to_msg_id, MessageMedia::typeMessageMediaEmpty);
+    eventNewMessage(newMessage);
 }
 
 void Bot::onUpdatesTooLong()
@@ -461,11 +470,16 @@ void Bot::resolveReplyFrom(BInputMessage message)
 
 void Bot::eventNewMessage(BInputMessage message)
 {
-    qCDebug(BOT_CORE) << "Event Here!!!!!!";
-    qCDebug(BOT_CORE) << "id= " << message.Id() << ", user=" << message.userId() << ", chat=" << message.chatId() <<
+    if (message.replyFromId() != 0 && message.replyFromUser() == 0)
+    {
+        resolveReplyFrom(message);
+        return;
+    }
+
+    qCDebug(BOT_CORE) << "NewMessage Event: id= " << message.id() << ", user=" << message.userId() << ", chat=" << message.chatId() <<
               ", message=" << message.message() << ", date=" << message.date().toString() << ", fwdFrom=" << message.forwardedFrom() << ", fwdDate=" <<
               message.forwardedDate().toString() << "Reply From: " << message.replyFromId() << ", " << message.replyFromUser() <<
-              ", " << message.replyFromMessage();
+              ", " << message.replyFromMessage() << ", media: " << message.messageMediaType();
 
     foreach (Module *module, mModules)
         module->onNewMessage(message);
@@ -493,34 +507,3 @@ void Bot::init()
 }
 
 //End Module System
-
-//Start Module Interface
-void Bot::executeDatabaseQuery(QSqlQuery &query)
-{
-    mDatabase->execute(query);
-}
-
-void Bot::executeDatabaseQuery(const QString &query)
-{
-    mDatabase->execute(query);
-}
-
-void Bot::sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo)
-{
-    InputPeer peer;
-
-    if (chat)
-    {
-        peer.setClassType(InputPeer::typeInputPeerChat);
-        peer.setChatId(id);
-    }
-    else
-    {
-        peer.setClassType(InputPeer::typeInputPeerForeign);
-        peer.setUserId(id);
-        peer.setAccessHash(mRedis->hget(QString("user#%1").arg(id), "access_hash").toLongLong());
-    }
-
-    mTelegram->messagesSendMessage(peer, BotUtils::secureRandomLong(), message, replyTo);
-}
-//End Module Interface

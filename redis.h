@@ -1,6 +1,8 @@
 #ifndef REDIS_H
 #define REDIS_H
 
+#include "botutils.h"
+
 #include <hiredis/hiredis.h>
 #include <QObject>
 #include <QVariant>
@@ -8,22 +10,37 @@
 
 class QTextStream;
 
-Q_DECLARE_LOGGING_CATEGORY(BOT_REDIS)
-
 class Redis : public QObject
 {
     Q_OBJECT
 private:
-    redisContext *mConnection;
+    static redisContext *redisConnection;
+    static redisContext *redis();
 
-    void reconnectRedis();
-    void postExecute(redisReply *reply);
+    static void reconnectRedis();
+    static void postExecute(redisReply *reply);
+
+    QString mName;
+
+    const QByteArray mLoggingCategoryName;
+    QLoggingCategory mLoggingCategory;
+
     QVariant processReply(redisReply *reply, bool first = true);
+    QByteArray getActualKey(const QString &key);
+    QVariant variadicCommand(const QString &command, const QString &key, const QList<QVariant> &values);
+
+    template<typename... Types>
+    QVariant command(const QString &command, const QString &key, Types... args)
+    {
+        QList<QVariant> argsList = BotUtils::convertArgsToList(args...);
+        return variadicCommand(command, key, argsList);
+    }
 
 public:
-    Redis(QObject *parent = Q_NULLPTR);
+    Redis(const QString &name, QObject *parent = Q_NULLPTR);
 
     //Primitive
+    QVariant exists(const QString &key);
     QVariant get(const QString &key);
     QVariant set(const QString &key, const QVariant &value, int ttl = -1, bool ifNotExists = false, bool ifExists = false);
     QVariant del(const QString &key);
@@ -32,6 +49,8 @@ public:
 
     //Set
     QVariant sadd(const QString &key, const QVariant &value);
+    QVariant sadd(const QString &key, const QList<QVariant> &values);
+    QVariant scard(const QString &key);
     QVariant smembers(const QString &key);
 
     //Hash

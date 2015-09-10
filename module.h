@@ -3,13 +3,13 @@
 
 #include "binputmessage.h"
 #include "botutils.h"
+#include "bot.h"
+#include "redis.h"
 
 #include <QObject>
 #include <QVariant>
 #include <QSqlQuery>
 #include <QLoggingCategory>
-
-class Bot;
 
 #define DECLARE_MODULE(name) \
 public: \
@@ -40,19 +40,23 @@ private:
     const qint64 mVersion;
     const QByteArray mLoggingCategoryName;
 
-protected:
+    Redis *mRedis;
     Bot *mBot;
+
+protected:
     QLoggingCategory mLoggingCategory;
 
     virtual void ensureDatabase() {}
     void registerModel(QObject *model);
+
+    Redis *redis() { return mRedis; }
 
 public:
     explicit Module(const QString name, const qint64 version, QObject *parent = Q_NULLPTR);
     virtual ~Module() = 0;
 
     void internalInit();
-    void setBot(Bot *bot) { mBot = bot; }
+    void setBot(Bot *bot) { mBot = bot;}
 
     QString name() { return mName; }
     qint64 version() { return mVersion; }
@@ -61,9 +65,13 @@ public:
     virtual void onNewMessage(BInputMessage message) { Q_UNUSED(message); }
 
     //Model Interface
+    BotInterface *interface() { return mBot->interface(); }
     QString getModelDatabaseTable(QObject *object);
-    void saveModelObject(QObject *object);
-    void deleteModelObject(QObject *object);
+    int saveModelObject(QObject *object);
+    int deleteModelObject(QObject *object);
+
+    //Cache Interface
+    QString getCacheKey(const QString &key);
 
 public slots:
 

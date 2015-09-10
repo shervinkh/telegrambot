@@ -25,7 +25,8 @@ SOURCES += main.cpp \
     database.cpp \
     botutils.cpp \
     redis.cpp \
-    modules/board/board.cpp
+    modules/board/board.cpp \
+    botinterface.cpp
 
 HEADERS += \
     bot.h \
@@ -37,7 +38,9 @@ HEADERS += \
     redis.h \
     modules/board/board.h \
     modules/board/boardmodel.h \
-    model.h
+    model.h \
+    modules/board/boarditemmodel.h \
+    botinterface.h
 
 LIBS += -lssl -lcrypto -lz -lqtelegram-ae -lhiredis
 INCLUDEPATH += /usr/include/libqtelegram-ae $$OUT_PWD/$$DESTDIR/include/libqtelegram-ae
