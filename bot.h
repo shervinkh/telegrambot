@@ -65,6 +65,9 @@ private:
     //Redis
     Redis *mRedis;
 
+    //Timer
+    QTimer *mTimer;
+
 public:
     explicit Bot(Database *database, QObject *parent = 0);
     void addModule(Module *module);
@@ -101,6 +104,9 @@ public slots:
                                 qint32 pts_count, qint32 date, qint32 fwd_from_id, qint32 fwd_date,
                                 qint32 reply_to_msg_id, bool unread, bool out);
     void onUpdatesTooLong();
+
+    //Cron Task
+    void cronTask();
 };
 
 #endif // BOT_H

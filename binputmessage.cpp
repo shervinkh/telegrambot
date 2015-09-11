@@ -34,17 +34,23 @@ void BInputMessage::setReplyData(qint64 replyUser, const QString &replyMessage)
     mReplyFromMessage = replyMessage;
 }
 
-QStringList BInputMessage::getArgumentsArray()
+QVariantList BInputMessage::getArgumentsArray()
 {
-    return mMessage.toLower().split(QRegularExpression("\\s+"), QString::SkipEmptyParts);
+    auto args = mMessage.toLower().split(QRegularExpression("\\s+"), QString::SkipEmptyParts);
+
+    QVariantList result;
+    foreach (auto arg, args)
+        result.append(arg);
+
+    return result;
 }
 
 QString BInputMessage::getStringFromArgument(int whichArgument)
 {
-    int startPos = 0;
+    auto startPos = 0;
     for (int i = 0; i < whichArgument; i++)
     {
-        int nextWhiteSpace = mMessage.indexOf(QRegularExpression("\\s"), startPos);
+        auto nextWhiteSpace = mMessage.indexOf(QRegularExpression("\\s"), startPos);
 
         if (nextWhiteSpace == -1)
             return QString();

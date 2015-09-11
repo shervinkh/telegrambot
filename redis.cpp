@@ -45,7 +45,12 @@ QVariant Redis::processReply(redisReply *reply, bool first)
     else if (reply->type == REDIS_REPLY_INTEGER)
         result = reply->integer;
     else if (reply->type == REDIS_REPLY_STRING)
-        result = reply->str;
+    {
+        QByteArray data;
+        data.resize(reply->len);
+        qCopy(reply->str, reply->str + reply->len, data.data());
+        result = data;
+    }
     else if (reply->type == REDIS_REPLY_NIL)
         result = QVariant();
     else if (reply->type == REDIS_REPLY_ERROR)
@@ -74,7 +79,7 @@ QVariant Redis::variadicCommand(const QString &command, const QString &key, cons
     stringValues.append(command.toLocal8Bit());
     stringValues.append(getActualKey(key));
     foreach (QVariant val, values)
-        stringValues.append(val.toString().toLocal8Bit());
+        stringValues.append(val.toByteArray());
 
     const char **argv = new const char *[stringValues.size()];
     size_t *argvlen = new size_t[stringValues.size()];
@@ -164,4 +169,23 @@ QVariant Redis::hset(const QString &key, const QString &field, const QVariant &v
 QVariant Redis::hget(const QString &key, const QString &field)
 {
     return command("HGET", key, field);
+}
+
+QVariant Redis::getCachedValue(const QString &key, std::function<QVariant ()> calculateFunction)
+{
+    QString cacheKey = QString("cache.%1").arg(key);
+
+    if (!exists(cacheKey).toBool())
+    {
+        QVariant result = calculateFunction();
+        set(cacheKey, BotUtils::serialize(result));
+    }
+
+    return BotUtils::deserialize(get(cacheKey).toByteArray());
+}
+
+void Redis::invalidateCache(const QString &key)
+{
+    QString cacheKey = QString("cache.%1").arg(key);
+    del(cacheKey);
 }

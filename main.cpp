@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     app.setApplicationVersion("0.1");
 
     qputenv("QT_LOGGING_RULES", "tg.*=false");
-    //qputenv("QT_LOGGING_RULES", "tg.*=false\nbot.*.debug=false");
+    qputenv("QT_LOGGING_RULES", "tg.*=false\nbot.*.debug=false");
 
     Database database;
 

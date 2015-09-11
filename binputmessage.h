@@ -24,7 +24,7 @@ public:
     BInputMessage(qint64 id, qint64 userId, qint64 chatId, qint64 date, const QString &message,
                   qint64 forwardedFrom, qint64 forwardedDate, qint64 replyFromId, int messageMediaType);
 
-    QStringList getArgumentsArray();
+    QVariantList getArgumentsArray();
     QString getStringFromArgument(int whichArgument);
 
     void setReplyData(qint64 replyUser, const QString &replyMessage);

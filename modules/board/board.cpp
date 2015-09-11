@@ -2,10 +2,15 @@
 #include "boardmodel.h"
 #include "boarditemmodel.h"
 #include "bot.h"
+#include <QDataStream>
 
 DEFINE_MODULE(Board)
 DEFINE_MODEL(BoardModel)
 DEFINE_MODEL(BoardItemModel)
+
+const QString Board::ckBoards = "chat#%1.boards_name";
+const int Board::MAX_BOARDS_PER_GROUP = 10;
+const int Board::MAX_ITEMS_PER_BOARD = 10;
 
 Board::Board()
     : Module("board", 0)
@@ -40,22 +45,51 @@ void Board::ensureDatabase()
 }
 
 void Board::onNewMessage(BInputMessage message)
-{
-    auto args = message.getArgumentsArray();
-
-    QString response;
-
-    if (message.chatId() && args.size() > 0 && (args[0] == "!board" || args[0] == "/board"))
+{   
+    if (message.chatId())
     {
-        if (args.size() > 2 && args[1] == "create")
-            response = fCreateBoard(message.chatId(), args[2], message.userId(), message.date());
-        else if (args.size() > 2 && args[1].startsWith("del"))
-            response = fDeleteBoard(message.chatId(), args[2]);
-        else
-            response = fGetBoards(message.chatId());
-    }
+        auto args = message.getArgumentsArray();
+        QString response;
+        bool pm = false;
 
-    interface()->sendMessage(message.chatId(), true, response, message.id());
+        if (args.size() > 0 && (args[0].toString() == "!board" || args[0].toString() == "/board"))
+        {
+            if (args.size() > 2 && args[1].toString().startsWith("create"))
+                response = fCreateBoard(message.chatId(), args[2].toString(), message.userId(), message.date());
+            else if (args.size() > 3 && args[1].toString().startsWith("rename"))
+                response = fRenameBoard(message.chatId(), args[2].toString(), args[3].toString());
+            else if (args.size() > 2 && (args[1].toString().startsWith("del") || args[1].toString().startsWith("rem")))
+                response = fDeleteBoard(message.chatId(), args[2].toString());
+            else
+                response = fGetBoards(message.chatId());
+        }
+
+        auto boardsName = cGetBoardsName(message.chatId());
+        if (args.size() > 0 && (args[0].toString().startsWith("!") || args[0].toString().startsWith("/")))
+        {
+            auto boardName = args[0].toString().mid(1);
+            if (boardsName.contains(boardName))
+            {
+                auto boardId = getBoard(message.chatId(), boardName);
+
+                if (args.size() > 2 && args[1].toString().startsWith("add"))
+                    response = fAddBoardItem(boardId, message.getStringFromArgument(2), message.userId(), message.date());
+                else if (args.size() > 3 && args[1].toString().startsWith("edit") && args[2].canConvert(QVariant::Int))
+                    response = fEditBoardItem(boardId, args[2].toInt(), message.getStringFromArgument(3));
+                else if (args.size() > 2 && (args[1].toString().startsWith("del") || args[1].toString().startsWith("rem")) &&
+                         args[2].canConvert(QVariant::Int))
+                    response = fDeleteBoardItem(boardId, message.getStringFromArgument(2).remove("\\s"));
+                else
+                {
+                    response = fGetBoardItems(boardId);
+                    if (args.last() == "pm")
+                        pm = true;
+                }
+            }
+        }
+
+        interface()->sendMessage(pm ? message.userId() : message.chatId(), !pm, response, message.id());
+    }
 }
 
 qint64 Board::getBoard(qint64 gid, const QString &name)
@@ -68,12 +102,34 @@ qint64 Board::getBoard(qint64 gid, const QString &name)
     return -1;
 }
 
-QStringList Board::getBoards(qint64 gid)
+QStringList Board::cGetBoardsName(qint64 gid)
 {
+    auto result = redis()->getCachedValue(ckBoards.arg(gid), [gid] () -> QVariant {
+                                              QStringList boardsName;
+                                              auto boards = MODEL(BoardModel)->objectSet().filter("gid=?", gid).select();
+                                              foreach (auto board, boards)
+                                                  boardsName.append(board->property("name").toString());
+                                              return boardsName;
+                                          });
+
+    return result.toStringList();
+}
+
+void Board::cInvalidateBoardCache(qint64 gid)
+{
+    redis()->invalidateCache(ckBoards.arg(gid));
 }
 
 QString Board::fCreateBoard(qint64 gid, const QString &name, qint64 created_by, const QDateTime &created_on)
 {
+    if (cGetBoardsName(gid).size() >= MAX_BOARDS_PER_GROUP)
+        return tr("Maximum number of boards for this group has been reached!");
+
+    auto modulesList = interface()->installedModules();
+    foreach (auto module, modulesList)
+        if (module->name() == name)
+            return tr("This name is not allowed for a board.");
+
     auto newBoard = MODEL(BoardModel)->newInstance();
     newBoard->setProperty("gid", gid);
     newBoard->setProperty("name", name);
@@ -81,36 +137,124 @@ QString Board::fCreateBoard(qint64 gid, const QString &name, qint64 created_by, 
     newBoard->setProperty("created_on", created_on);
 
     if (newBoard->save())
+    {
+        cInvalidateBoardCache(gid);
         return tr("Successfully created new board: %1").arg(name);
+    }
     else
         return tr("Falied to create new board! Maybe a board with the same name already exists!");
+}
+
+QString Board::fRenameBoard(qint64 gid, const QString &name, const QString &newName)
+{
+    if (MODEL(BoardModel)->objectSet().filter("gid=? AND name=?", gid, name).update("name=?", newName))
+    {
+        cInvalidateBoardCache(gid);
+        return tr("Successfully renamed board. Old Name: %1, New Name: %2").arg(name).arg(newName);
+    }
+    else
+        return tr("Falied to rename the board! Maybe the board doesn't exists!");
 }
 
 QString Board::fDeleteBoard(qint64 gid, const QString &name)
 {
     if (MODEL(BoardModel)->objectSet().filter("gid=? AND name=?", gid, name).deleteObjects())
+    {
+        cInvalidateBoardCache(gid);
         return tr("Successfully deleted board: %1").arg(name);
+    }
     else
         return tr("Falied to delete the board! Maybe the board doesn't exists!");
 }
 
 QString Board::fGetBoards(qint64 gid)
 {
-    auto objs = MODEL(BoardModel)->objectSet().filter("gid=?", gid).select();
+    auto objs = cGetBoardsName(gid);
 
     if (objs.isEmpty())
         return tr("No boards for this group!");
     else
     {
-        QString result = tr("Boards of this group: ");
+        auto result = tr("Boards of this group: ");
 
         for (int i = 0; i < objs.size(); i++)
-            result += tr("\n%1- %2").arg(i + 1).arg(objs[i]->property("name").toString());
+            result += tr("\n%1- %2").arg(i + 1).arg(objs[i]);
 
         return result;
     }
 }
 
-//QString addBoardItem(qint64 board_id, const QString &content);
-//QString deleteBoardItem(qint64 board_id, int idx);
-//QString getBoardItems(qint64 board_id);
+QString Board::fAddBoardItem(qint64 board_id, const QString &content, qint64 created_by, const QDateTime &created_on)
+{
+    auto boardCount = MODEL(BoardItemModel)->objectSet().filter("board_id=?", board_id).select().size();
+    if (boardCount >= MAX_ITEMS_PER_BOARD)
+        return tr("Maximum number of items for this board has been reached!");
+
+    auto newItem = MODEL(BoardItemModel)->newInstance();
+    newItem->setProperty("board_id", board_id);
+    newItem->setProperty("content", content);
+    newItem->setProperty("media_content_type", MessageMedia::typeMessageMediaEmpty);
+    newItem->setProperty("media_content_id", 0);
+    newItem->setProperty("created_by", created_by);
+    newItem->setProperty("created_on", created_on);
+
+    if (newItem->save())
+        return tr("Added new entry to the board.");
+    else
+        return tr("Falied to add new item!");
+}
+
+QString Board::fEditBoardItem(qint64 board_id, int idx, const QString &newContent)
+{
+    auto items = MODEL(BoardItemModel)->objectSet().filter("board_id=?", board_id).select();
+
+    if (idx < 1 || idx > items.size())
+        return tr("No such entry!");
+
+    auto itemId = items[idx - 1]->property("id");
+
+    if (MODEL(BoardItemModel)->objectSet().filter("id=?", itemId).update("content=?", newContent))
+        return tr("Edit board entry.");
+    else
+        return tr("Falied to edit board entry!");
+}
+
+QString Board::fDeleteBoardItem(qint64 board_id, const QString &range)
+{
+    auto items = MODEL(BoardItemModel)->objectSet().filter("board_id=?", board_id).select();
+
+    auto entries = BotUtils::stringToRange(range, 1, items.size());
+
+    if (entries.isEmpty())
+        return tr("No such entry!");
+
+    QStringList ids;
+    foreach (auto entry, entries)
+        ids.append(items[entry - 1]->property("id").toString());
+
+    if (MODEL(BoardItemModel)->objectSet().filter(QString("id in (%1)").arg(ids.join(", "))).deleteObjects())
+        return tr("Deleted board entry.");
+    else
+        return tr("Falied to delete board entry!");
+}
+
+QString Board::fGetBoardItems(qint64 board_id)
+{
+    auto items = MODEL(BoardItemModel)->objectSet().filter("board_id=?", board_id).select();
+
+    if (items.isEmpty())
+        return tr("No entry for this board!");
+    else
+    {
+        QString result;
+
+        for (int i = 0; i < items.size(); i++)
+        {
+            result += tr("%1- %2").arg(i + 1).arg(items[i]->property("content").toString());
+            if (i != items.size() - 1)
+                result += "\n";
+        }
+
+        return result;
+    }
+}

@@ -8,6 +8,8 @@
 class BotUtils
 {
 public:
+    static const int MAX_RANGE_LEN;
+
     static QByteArray secureRandomBytes(int cnt);
     static quint64 secureRandomLong();
 
@@ -22,6 +24,9 @@ public:
     }
 
     static int getNumRowsAffected(const QSqlQuery &query);
+    static QByteArray serialize(const QVariant &input);
+    static QVariant deserialize(const QByteArray &input);
+    static QList<int> stringToRange(const QString &input, int start = -1, int end = -1);
 };
 
 #endif // BOTUTILS_H

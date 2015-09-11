@@ -19,7 +19,7 @@ Bot::Bot(Database *database, QObject *parent)
 
     //FIXME: Change 40->50 in production
     mTelegram = new Telegram("149.154.167.50", 443, 2, 39006, "034ac9bc16b9b1dbae4e3f846e9f5dd9",
-                            "+989025484622", "~/.telegrambot", "tg.pub");
+                            "+989212823848", "~/.telegrambot", "tg.pub");
 
     //Auth
     connect(mTelegram, &Telegram::authNeeded, this, &Bot::onAuthNeeded);
@@ -43,6 +43,10 @@ Bot::Bot(Database *database, QObject *parent)
     connect(mTelegram, &Telegram::updateShortMessage, this, &Bot::onUpdateShortMessage);
     connect(mTelegram, &Telegram::updateShortChatMessage, this, &Bot::onUpdateShortChatMessage);
     connect(mTelegram, &Telegram::updatesTooLong, this, &Bot::onUpdatesTooLong);
+
+    mTimer = new QTimer(this);
+    connect(mTimer, &QTimer::timeout, this, &Bot::cronTask);
+    mTimer->setInterval(60000);
 }
 
 //Start Metadata
@@ -164,6 +168,7 @@ void Bot::onAuthLoggedIn()
     mLoggedIn = true;
     qCInfo(BOT_CORE) << "Logged In.";
     mTelegram->accountRegisterDevice(QCoreApplication::applicationName(), QCoreApplication::applicationVersion());
+    mTimer->start();
     updateMetadata();
 }
 
@@ -242,6 +247,7 @@ void Bot::onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const
     if (--mLinkdataCount == 0) {
         qCInfo(BOT_CORE) << "Fininshed getting group-user links!";
         mLinkdataCount = -1;
+
     }
 }
 //End Messages
@@ -507,3 +513,11 @@ void Bot::init()
 }
 
 //End Module System
+
+//Cron
+void Bot::cronTask()
+{
+    mTelegram->accountRegisterDevice(QCoreApplication::applicationName(), QCoreApplication::applicationVersion());
+    qCInfo(BOT_CORE) << QString("Sending Keep-Alive (%1)").arg(QDateTime::currentDateTime().toString());
+    mTimer->start();
+}

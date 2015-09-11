@@ -3,6 +3,7 @@
 
 #include "botutils.h"
 
+#include <functional>
 #include <hiredis/hiredis.h>
 #include <QObject>
 #include <QVariant>
@@ -56,6 +57,10 @@ public:
     //Hash
     QVariant hset(const QString &key, const QString &field, const QVariant &value);
     QVariant hget(const QString &key, const QString &field);
+
+    //Cache
+    QVariant getCachedValue(const QString &key, std::function<QVariant()> calculateFunction);
+    void invalidateCache(const QString &key);
 };
 
 #endif // REDIS_H
