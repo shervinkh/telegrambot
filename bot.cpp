@@ -4,6 +4,7 @@
 #include "module.h"
 #include "botinterface.h"
 #include <QtCore>
+#include <QStandardPaths>
 
 const int Bot::METADATA_UPDATE_SLICE = 100;
 
@@ -17,9 +18,11 @@ Bot::Bot(Database *database, QObject *parent)
     mRedis = new Redis("core");
     mBotInterface = new BotInterface(this, this);
 
+    QString homeDir = QStandardPaths::standardLocations(QStandardPaths::HomeLocation).last();
+
     //FIXME: Change 40->50 in production
     mTelegram = new Telegram("149.154.167.50", 443, 2, 39006, "034ac9bc16b9b1dbae4e3f846e9f5dd9",
-                            "+989212823848", "~/.telegrambot", "tg.pub");
+                            "+989212823848", homeDir + "/.telegrambot", homeDir + "/tg.pub");
 
     //Auth
     connect(mTelegram, &Telegram::authNeeded, this, &Bot::onAuthNeeded);
