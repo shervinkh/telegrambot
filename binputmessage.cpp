@@ -34,7 +34,17 @@ void BInputMessage::setReplyData(qint64 replyUser, const QString &replyMessage)
     mReplyFromMessage = replyMessage;
 }
 
-QVariantList BInputMessage::getArgumentsArray()
+QString BInputMessage::command() const
+{
+    auto args = getArgumentsArray();
+
+    if (args.size() > 0 && (args[0].toString().startsWith("!") || args[0].toString().startsWith("/")))
+        return args[0].toString().mid(1);
+
+    return QString();
+}
+
+QVariantList BInputMessage::getArgumentsArray() const
 {
     auto args = mMessage.toLower().split(QRegularExpression("\\s+"), QString::SkipEmptyParts);
 
@@ -45,7 +55,7 @@ QVariantList BInputMessage::getArgumentsArray()
     return result;
 }
 
-QString BInputMessage::getStringFromArgument(int whichArgument)
+QString BInputMessage::getStringFromArgument(int whichArgument) const
 {
     auto startPos = 0;
     for (int i = 0; i < whichArgument; i++)

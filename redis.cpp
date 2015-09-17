@@ -173,11 +173,11 @@ QVariant Redis::hget(const QString &key, const QString &field)
 
 QVariant Redis::getCachedValue(const QString &key, std::function<QVariant ()> calculateFunction)
 {
-    QString cacheKey = QString("cache.%1").arg(key);
+    auto cacheKey = QString("cache.%1").arg(key);
 
     if (!exists(cacheKey).toBool())
     {
-        QVariant result = calculateFunction();
+        auto result = calculateFunction();
         set(cacheKey, BotUtils::serialize(result));
     }
 
@@ -186,6 +186,6 @@ QVariant Redis::getCachedValue(const QString &key, std::function<QVariant ()> ca
 
 void Redis::invalidateCache(const QString &key)
 {
-    QString cacheKey = QString("cache.%1").arg(key);
+    auto cacheKey = QString("cache.%1").arg(key);
     del(cacheKey);
 }

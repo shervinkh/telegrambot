@@ -30,9 +30,11 @@ private:
     QString fGetBoardItems(qint64 board_id);
 
 protected:
+    ModuleHelp help() const;
     void ensureDatabase();
 
 public:
+    void init();
     void onNewMessage(BInputMessage message);
 
 signals:

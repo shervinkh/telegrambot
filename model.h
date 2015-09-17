@@ -5,6 +5,7 @@
 #include "botinterface.h"
 
 #include <QObject>
+#include <QDate>
 #include <QMetaProperty>
 #include <QSharedPointer>
 
@@ -18,6 +19,7 @@ private:
     QString mLimitClause;
 
     ModelClass *mModel;
+    BotInterface *mBotInterface;
 
     QString conditionString() const
     {
@@ -36,7 +38,8 @@ private:
     }
 
 public:
-    ObjectSet(ModelClass *model) : mModel(model) {}
+    ObjectSet(ModelClass *model, BotInterface *botInterface)
+        : mModel(model), mBotInterface(botInterface) {}
 
     template<typename... Types>
     ObjectSet<ModelClass> filter(const QString &whereClause, Types... args)
@@ -90,26 +93,25 @@ public:
         if (mOrderByClause.isEmpty())
             return orderby("id").select();
 
-        Module *modelModule = mModel->getModule();
         QStringList fields = mModel->fields();
 
         QList<typename ModelClass::PointerType> result;
 
-        if (modelModule)
+        if (mBotInterface)
         {
             QString queryString = QString("SELECT %1 FROM %2%3").arg(fields.join(", "))
-                    .arg(modelModule->getModelDatabaseTable(mModel)).arg(conditionString());
+                    .arg(mBotInterface->getModelDatabaseTable(mModel)).arg(conditionString());
 
             QSqlQuery query;
             if (mWhereClauseValues.isEmpty())
-                query = modelModule->interface()->executeDatabaseQuery(queryString);
+                query = mBotInterface->executeDatabaseQuery(queryString);
             else
             {
                 query.prepare(queryString);
                 foreach (QVariant value, mWhereClauseValues)
                     query.addBindValue(value);
 
-                modelModule->interface()->executeDatabaseQuery(query);
+                mBotInterface->executeDatabaseQuery(query);
             }
 
             while (query.next())
@@ -134,23 +136,21 @@ public:
             return 0;
         }
 
-        Module *modelModule = mModel->getModule();
-
-        if (modelModule)
+        if (mBotInterface)
         {
             QString queryString = QString("DELETE FROM %1%2")
-                    .arg(modelModule->getModelDatabaseTable(mModel)).arg(conditionString());
+                    .arg(mBotInterface->getModelDatabaseTable(mModel)).arg(conditionString());
 
             QSqlQuery query;
             if (mWhereClauseValues.isEmpty())
-                query = modelModule->interface()->executeDatabaseQuery(queryString);
+                query = mBotInterface->executeDatabaseQuery(queryString);
             else
             {
                 query.prepare(queryString);
                 foreach (QVariant value, mWhereClauseValues)
                     query.addBindValue(value);
 
-                modelModule->interface()->executeDatabaseQuery(query);
+                mBotInterface->executeDatabaseQuery(query);
             }
 
             return BotUtils::getNumRowsAffected(query);
@@ -164,16 +164,14 @@ public:
     {
         QList<QVariant> updateClauseValues = BotUtils::convertArgsToList(args...);
 
-        Module *modelModule = mModel->getModule();
-
-        if (modelModule)
+        if (mBotInterface)
         {
             QString queryString = QString("UPDATE %1 SET %2%3")
-                    .arg(modelModule->getModelDatabaseTable(mModel)).arg(updateClause).arg(conditionString());
+                    .arg(mBotInterface->getModelDatabaseTable(mModel)).arg(updateClause).arg(conditionString());
 
             QSqlQuery query;
             if (mWhereClauseValues.isEmpty() && updateClauseValues.isEmpty())
-                query = modelModule->interface()->executeDatabaseQuery(queryString);
+                query = mBotInterface->executeDatabaseQuery(queryString);
             else
             {
                 query.prepare(queryString);
@@ -182,7 +180,7 @@ public:
                 foreach (QVariant value, mWhereClauseValues)
                     query.addBindValue(value);
 
-                modelModule->interface()->executeDatabaseQuery(query);
+                mBotInterface->executeDatabaseQuery(query);
             }
 
             return BotUtils::getNumRowsAffected(query);
@@ -192,31 +190,30 @@ public:
     }
 };
 
-#define DECLARE_MODEL(klass, m_name) \
+#define DECLARE_MODEL(klass, m_name, ver, ver_d) \
 public: \
     Q_INVOKABLE QString name() const { return #m_name; } \
+    Q_INVOKABLE qint64 version() const { return ver; } \
+    Q_INVOKABLE QDate versionDate() const { return ver_d; } \
+    Q_INVOKABLE QString section() const { return mSection; } \
     bool save() \
     { \
-        if (mModule) \
-            return mModule->saveModelObject(this); \
+        if (mBotInterface) \
+            return mBotInterface->saveModelObject(this); \
         return false; \
     } \
     bool deleteObject() \
     { \
-        if (mModule) \
-        { \
-            int res = mModule->deleteModelObject(this); \
-            setProperty("id", -1); \
-            return res; \
-        } \
+        if (mBotInterface) \
+            return mBotInterface->deleteModelObject(this); \
         return false; \
     } \
     typedef QSharedPointer<klass> PointerType; \
     PointerType newInstance() \
     { \
         klass *newObject = new klass(); \
-        newObject->setModule(mModule); \
-        return QSharedPointer<klass>(newObject); \
+        newObject->setup(mBotInterface, mSection); \
+        return PointerType(newObject); \
     } \
     Q_INVOKABLE QStringList fields() \
     { \
@@ -227,7 +224,7 @@ public: \
     } \
     ObjectSet<klass> objectSet() \
     { \
-        return ObjectSet<klass>(sharedInstance()); \
+        return ObjectSet<klass>(sharedInstance(), mBotInterface); \
     } \
     static klass *sharedInstance() \
     { \
@@ -235,18 +232,16 @@ public: \
             mSharedInstance = new klass(); \
         return mSharedInstance; \
     } \
-    Q_INVOKABLE void setModule(Module *module) \
+    Q_INVOKABLE void setup(BotInterface *botInterface, const QString &section) \
     { \
-        mModule = module; \
-    } \
-    Q_INVOKABLE Module *getModule() \
-    { \
-        return mModule; \
+        mBotInterface = botInterface; \
+        mSection = section; \
     } \
 private: \
-    klass() : QObject(Q_NULLPTR), mModule(Q_NULLPTR), m_id(-1) {} \
+    klass() : QObject(Q_NULLPTR), mBotInterface(Q_NULLPTR), m_id(-1) {} \
     static klass *mSharedInstance; \
-    Module *mModule; \
+    BotInterface *mBotInterface; \
+    QString mSection; \
     DECLARE_MODEL_FIELD(qint64, id)
 
 #define DEFINE_MODEL(name) name *name::mSharedInstance = Q_NULLPTR;

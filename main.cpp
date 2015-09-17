@@ -3,6 +3,7 @@
 #include "redis.h"
 #include "signalhandler.h"
 #include "modules/board/board.h"
+#include "modules/help/help.h"
 
 #include <telegram.h>
 
@@ -14,16 +15,18 @@ int main(int argc, char *argv[])
 
     SignalHandler signalHandler;
 
-    app.setApplicationName("TelegramBot");
-    app.setApplicationVersion("0.1");
+    app.setApplicationName("Telegram-Bot");
+    app.setApplicationVersion(Bot::version());
 
     qputenv("QT_LOGGING_RULES", "tg.*=false");
     qputenv("QT_LOGGING_RULES", "tg.*=false\nbot.*.debug=false");
+    //qputenv("DEBUG", "true");
 
     Database database;
 
     Bot bot(&database);
-    bot.addModule(MODULE(Board));
+    bot.installModule(MODULE(Board));
+    bot.installModule(MODULE(Help));
     bot.init();
 
     return app.exec();

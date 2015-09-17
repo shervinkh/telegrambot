@@ -6,7 +6,7 @@
 class BoardModel : public QObject
 {
     Q_OBJECT
-    DECLARE_MODEL(BoardModel, board)
+    DECLARE_MODEL(BoardModel, board, 0, QDate(2015, 9, 11))
     DECLARE_MODEL_FIELD(qint64, gid)
     DECLARE_MODEL_FIELD(QString, name)
     DECLARE_MODEL_FIELD(qint64, created_by)

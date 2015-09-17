@@ -5,6 +5,7 @@
 #include "botutils.h"
 #include "bot.h"
 #include "redis.h"
+#include "help/modulehelp.h"
 
 #include <QObject>
 #include <QVariant>
@@ -38,40 +39,43 @@ class Module : public QObject
 private:
     const QString mName;
     const qint64 mVersion;
+    const QDate mVersionDate;
     const QByteArray mLoggingCategoryName;
 
     Redis *mRedis;
-    Bot *mBot;
+    BotInterface *mBotInterface;
+
+    QList<QString> mSupportingCommands;
 
 protected:
     QLoggingCategory mLoggingCategory;
 
     virtual void ensureDatabase() {}
+    virtual ModuleHelp help() const { return ModuleHelp(); }
+    void registerCommand(const QString &command) { mSupportingCommands.append(command); }
     void registerModel(QObject *model);
 
-    Redis *redis() { return mRedis; }
+    Redis *redis();
 
 public:
-    explicit Module(const QString name, const qint64 version, QObject *parent = Q_NULLPTR);
+    explicit Module(const QString name, const qint64 version, const QDate &versionDate, QObject *parent = Q_NULLPTR);
     virtual ~Module() = 0;
 
     void internalInit();
-    void setBot(Bot *bot) { mBot = bot;}
+    void setBotInterface(BotInterface *botInterface) { mBotInterface = botInterface;}
 
-    QString name() { return mName; }
-    qint64 version() { return mVersion; }
+    QString name() const { return mName; }
+    qint64 version() const { return mVersion; }
+    QDate versionDate() const { return mVersionDate; }
+    QString helpString() const;
+    QList<QString> supportingCommands() const { return mSupportingCommands; }
 
     virtual void init() {}
+
     virtual void onNewMessage(BInputMessage message) { Q_UNUSED(message); }
 
     //Model Interface
-    BotInterface *interface() { return mBot->interface(); }
-    QString getModelDatabaseTable(QObject *object);
-    int saveModelObject(QObject *object);
-    int deleteModelObject(QObject *object);
-
-    //Cache Interface
-    QString getCacheKey(const QString &key);
+    BotInterface *interface() { return mBotInterface; }
 
 public slots:
 

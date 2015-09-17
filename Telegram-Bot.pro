@@ -16,7 +16,6 @@ TEMPLATE = app
 
 CONFIG += c++11
 
-
 SOURCES += main.cpp \
     bot.cpp \
     signalhandler.cpp \
@@ -26,7 +25,12 @@ SOURCES += main.cpp \
     botutils.cpp \
     redis.cpp \
     modules/board/board.cpp \
-    botinterface.cpp
+    botinterface.cpp \
+    core/core_data_store/coredatastore.cpp \
+    core/core_model/coremodel.cpp \
+    help/modulehelp.cpp \
+    help/modulehelpusage.cpp \
+    modules/help/help.cpp
 
 HEADERS += \
     bot.h \
@@ -40,7 +44,14 @@ HEADERS += \
     modules/board/boardmodel.h \
     model.h \
     modules/board/boarditemmodel.h \
-    botinterface.h
+    botinterface.h \
+    core/core_data_store/installedmodulemodel.h \
+    core/core_data_store/coredatastore.h \
+    core/core_model/coremodel.h \
+    core/core_model/installedmodelmodel.h \
+    help/modulehelp.h \
+    help/modulehelpusage.h \
+    modules/help/help.h
 
 LIBS += -lssl -lcrypto -lz -lqtelegram-ae -lhiredis
 INCLUDEPATH += /usr/include/libqtelegram-ae $$OUT_PWD/$$DESTDIR/include/libqtelegram-ae

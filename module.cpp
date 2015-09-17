@@ -1,14 +1,13 @@
 #include "module.h"
 #include "botinterface.h"
 #include "bot.h"
-#include <QMetaProperty>
 
-Module::Module(const QString name, const qint64 version, QObject *parent)
-    : QObject(parent), mName(name.toLower()), mVersion(version),
+Module::Module(const QString name, const qint64 version, const QDate &versionDate, QObject *parent)
+    : QObject(parent), mName(name.toLower()), mVersion(version), mVersionDate(versionDate),
       mLoggingCategoryName(QByteArray("bot.modules.").append(mName)),
-      mBot(Q_NULLPTR), mLoggingCategory(mLoggingCategoryName.data())
+      mRedis(Q_NULLPTR), mLoggingCategory(mLoggingCategoryName.data())
 {
-    mRedis = new Redis(QString("modules.%1").arg(mName), this);
+
 }
 
 Module::~Module()
@@ -23,96 +22,35 @@ void Module::internalInit()
 
 void Module::registerModel(QObject *model)
 {
-    model->metaObject()->invokeMethod(model, "setModule", Q_ARG(Module *, this));
+    interface()->registerModel(QString("modules_%1").arg(mName), model);
 }
 
-QString Module::getModelDatabaseTable(QObject *object)
+Redis *Module::redis()
 {
-    QString modelName;
-    object->metaObject()->invokeMethod(object, "name", Q_RETURN_ARG(QString, modelName));
-    return QString("bot_modules_%1_%2s").arg(mName).arg(modelName);
+    if (!mRedis)
+        mRedis = new Redis(QString("modules.%1").arg(mName), this);
+
+    return mRedis;
 }
 
-int Module::saveModelObject(QObject *object)
+QString Module::helpString() const
 {
-    qint64 pk = object->property("id").toLongLong();
-    QSqlQuery query;
+    auto moduleHelp = help();
 
-    QStringList fields;
-    QList<QVariant> values;
+    auto result = tr("Module: %1 -- Version: %2 (%3)").arg(mName).arg(mVersion)
+            .arg(mVersionDate.toString(BotUtils::DATE_FORMAT));
 
-    for (int i = 2; i < object->metaObject()->propertyCount(); i++)
+    if (!moduleHelp.description().isEmpty())
+        result += "\n" + moduleHelp.description();
+
+    foreach (auto usage, moduleHelp.usages())
     {
-        fields.append(object->metaObject()->property(i).name());
-        values.append(object->metaObject()->property(i).read(object));
+        result += tr("\n\nUsage: %1").arg(usage.usage());
+        if (!usage.usageFormat().isEmpty())
+            result += tr("\nFormat: %1").arg(usage.usageFormat());
+        if (!usage.usageExample().isEmpty())
+            result += tr("\nExample: %1").arg(usage.usageExample());
     }
 
-    if (pk == -1)
-    {
-        QString fieldString = fields.join(", ");
-        QString questionMarks;
-        QStringListIterator iter(fields);
-        while (iter.hasNext())
-        {
-            iter.next();
-            questionMarks += "?";
-            if (iter.hasNext())
-                questionMarks += ", ";
-        }
-
-        query.prepare(QString("INSERT INTO %1(%2) VALUES(%3)").arg(getModelDatabaseTable(object)).arg(fieldString).arg(questionMarks));
-        foreach (QVariant value, values)
-            query.addBindValue(value);
-
-        interface()->executeDatabaseQuery(query);
-
-        object->setProperty("id", query.lastInsertId().toLongLong());
-
-        return BotUtils::getNumRowsAffected(query);
-    }
-    else
-    {
-        QString updateQuery;
-        QStringListIterator iter(fields);
-        while (iter.hasNext())
-        {
-            updateQuery += iter.next();
-            updateQuery.append("=?");
-            if (iter.hasNext())
-                updateQuery += ", ";
-        }
-
-        query.prepare(QString("UPDATE %1 SET %2 WHERE id=?").arg(getModelDatabaseTable(object)).arg(updateQuery));
-        foreach (QVariant value, values)
-            query.addBindValue(value);
-
-        query.addBindValue(object->property("id"));
-
-        interface()->executeDatabaseQuery(query);
-
-        return BotUtils::getNumRowsAffected(query);
-    }
-}
-
-int Module::deleteModelObject(QObject *object)
-{
-    qint64 pk = object->property("id").toLongLong();
-    QSqlQuery query;
-
-    if (pk != -1)
-    {
-        query.prepare(QString("DELETE FROM %1 WHERE id=?").arg(getModelDatabaseTable(object)));
-        query.addBindValue(pk);
-
-        interface()->executeDatabaseQuery(query);
-
-        return BotUtils::getNumRowsAffected(query);
-    }
-
-    return 0;
-}
-
-QString Module::getCacheKey(const QString &key)
-{
-    return QString("bot:modules:%1:%2").arg(mName).arg(key);
+    return result;
 }

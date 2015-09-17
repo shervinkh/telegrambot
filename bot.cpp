@@ -1,10 +1,15 @@
 #include "bot.h"
 #include "database.h"
+#include "core/core_data_store/coredatastore.h"
+#include "core/core_model/coremodel.h"
 #include "redis.h"
 #include "module.h"
 #include "botinterface.h"
 #include <QtCore>
 #include <QStandardPaths>
+
+const QString Bot::sVersion = "0.0.1";
+const QDate Bot::sVersionDate = QDate(2015, 9, 11);
 
 const int Bot::METADATA_UPDATE_SLICE = 100;
 
@@ -15,8 +20,12 @@ Bot::Bot(Database *database, QObject *parent)
 {
     mCurrentOperation = None;
     mLoggedIn = false;
-    mRedis = new Redis("core");
     mBotInterface = new BotInterface(this, this);
+    mCoreModel = new CoreModel(mBotInterface, this);
+    mCoreModel->init();
+    mCoreDataStore = new CoreDataStore(mBotInterface, this);
+    mCoreRedis = mCoreDataStore->redis(CoreDataStore::CoreRedis);
+    mMetaRedis = mCoreDataStore->redis(CoreDataStore::MetaRedis);
 
     QString homeDir = QStandardPaths::standardLocations(QStandardPaths::HomeLocation).last();
 
@@ -60,31 +69,47 @@ void Bot::updateMetadata()
 
     qCInfo(BOT_CORE) << "Getting basic groups and users metadata...";
 
-    mRedis->del("groups");
-    mRedis->del("users");
+    mMetaRedis->del("groups");
+    mMetaRedis->del("users");
     mMetadataStart = 0;
     mTelegram->messagesGetDialogs(mMetadataStart, 0, METADATA_UPDATE_SLICE);
 }
 
 void Bot::updateUserGroupLinks()
 {
-    if (mLinkdataCount != -1)
+    if (!mLinkdataList.isEmpty())
         return;
 
     qCInfo(BOT_CORE) << "Getting group-user links...";
 
-    QList<QVariant> users = mRedis->smembers("users").toList();
-    foreach (QVariant uid, users)
-        mRedis->del(QString("user#%1.groups").arg(uid.toLongLong()));
+    auto users = mMetaRedis->smembers("users").toList();
+    foreach (auto uid, users)
+        mMetaRedis->del(QString("user#%1.groups").arg(uid.toLongLong()));
 
-    QList<QVariant> groups = mRedis->smembers("groups").toList();
-    mLinkdataCount = groups.size();
+    auto groups = mMetaRedis->smembers("groups").toList();
+    foreach (auto gid, groups)
+        mLinkdataList.append(gid.toLongLong());
 
-    foreach (QVariant gid, groups)
+    updateNextGroupLinks();
+}
+
+void Bot::updateNextGroupLinks()
+{
+    QTimer::singleShot(1000, this, &Bot::updateNextGroupLinksImp);
+}
+
+void Bot::updateNextGroupLinksImp()
+{
+    qCInfo(BOT_CORE) << "Remaining groups: " << mLinkdataList.size();
+
+    if (!mLinkdataList.isEmpty())
     {
-        mRedis->del(QString("chat#%1.users").arg(gid.toLongLong()));
-        mTelegram->messagesGetFullChat(gid.toLongLong());
+        auto nextGid = mLinkdataList.takeFirst();
+        mMetaRedis->del(QString("chat#%1.users").arg(nextGid));
+        mTelegram->messagesGetFullChat(nextGid);
     }
+    else
+        qCInfo(BOT_CORE) << "Fininshed getting group-user links!";
 }
 //End Metadata
 
@@ -93,12 +118,12 @@ void Bot::getUserData(const User &user)
 {
     if (user.classType() != User::typeUserDeleted && user.classType() != User::typeUserEmpty)
     {
-        mRedis->sadd("users", user.id());
+        mMetaRedis->sadd("users", user.id());
         QString dataKey = QString("user#%1").arg(user.id());
-        mRedis->hset(dataKey, "first_name", user.firstName());
-        mRedis->hset(dataKey, "last_name", user.lastName());
-        mRedis->hset(dataKey, "username", user.username());
-        mRedis->hset(dataKey, "access_hash", user.accessHash());
+        mMetaRedis->hset(dataKey, "first_name", user.firstName());
+        mMetaRedis->hset(dataKey, "last_name", user.lastName());
+        mMetaRedis->hset(dataKey, "username", user.username());
+        mMetaRedis->hset(dataKey, "access_hash", user.accessHash());
     }
 }
 
@@ -106,9 +131,9 @@ void Bot::getChatData(const Chat &chat)
 {
     if (chat.classType() != Chat::typeChatForbidden && chat.classType() != Chat::typeChatEmpty && !chat.left())
     {
-        mRedis->sadd("groups", chat.id());
+        mMetaRedis->sadd("groups", chat.id());
         QString dataKey = QString("chat#%1").arg(chat.id());
-        mRedis->hset(dataKey, "title", chat.title());
+        mMetaRedis->hset(dataKey, "title", chat.title());
     }
 }
 
@@ -119,13 +144,13 @@ void Bot::getChatParticipantsData(const ChatParticipants &chatParticipants)
         qint64 chatId = chatParticipants.chatId();
 
         QString chatDataKey = QString("chat#%1").arg(chatId);
-        mRedis->hset(chatDataKey, "admin", chatParticipants.adminId());
+        mMetaRedis->hset(chatDataKey, "admin", chatParticipants.adminId());
 
         QString chatMembersDataKey = QString("chat#%1.users").arg(chatId);
         foreach (ChatParticipant chatParticipant, chatParticipants.participants())
         {
-            mRedis->hset(chatMembersDataKey, QString::number(chatParticipant.userId()), chatParticipant.inviterId());
-            mRedis->sadd(QString("user#%1.groups").arg(chatParticipant.userId()), chatId);
+            mMetaRedis->hset(chatMembersDataKey, QString::number(chatParticipant.userId()), chatParticipant.inviterId());
+            mMetaRedis->sadd(QString("user#%1.groups").arg(chatParticipant.userId()), chatId);
         }
     }
 }
@@ -172,7 +197,11 @@ void Bot::onAuthLoggedIn()
     qCInfo(BOT_CORE) << "Logged In.";
     mTelegram->accountRegisterDevice(QCoreApplication::applicationName(), QCoreApplication::applicationVersion());
     mTimer->start();
-    updateMetadata();
+
+    if (!mBotInterface->debug())
+        updateMetadata();
+    else
+        qCInfo(BOT_CORE) << "Not updating metadata due to running in debug mode";
 }
 
 void Bot::onAuthSignInError(qint64 id, qint32 errorCode, const QString &errorText)
@@ -215,8 +244,10 @@ void Bot::onMessagesGetDialogsAnswer(qint64 id, qint32 sliceCount, const QList<D
                                      const QList<Chat> &chats, const QList<User> &users)
 {
     Q_UNUSED(id);
-    Q_UNUSED(dialogs);
     Q_UNUSED(messages);
+
+    qCInfo(BOT_CORE) << QString("Got entries %1 - %2 of total %3")
+                        .arg(mMetadataStart + 1).arg(mMetadataStart + dialogs.size()).arg(sliceCount);
 
     int count = dialogs.size();
 
@@ -243,15 +274,13 @@ void Bot::onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const
 {
     Q_UNUSED(id);
     Q_UNUSED(chats);
-    Q_UNUSED(users);
+
+    foreach (auto user, users)
+        getUserData(user);
 
     getChatParticipantsData(chatFull.participants());
 
-    if (--mLinkdataCount == 0) {
-        qCInfo(BOT_CORE) << "Fininshed getting group-user links!";
-        mLinkdataCount = -1;
-
-    }
+    updateNextGroupLinks();
 }
 //End Messages
 
@@ -498,19 +527,20 @@ void Bot::eventNewMessage(BInputMessage message)
 
 //Start Module System
 
-void Bot::addModule(Module *module)
+void Bot::installModule(Module *module)
 {
-    module->setBot(this);
+    module->setBotInterface(mBotInterface);
+    mCoreDataStore->updateModuleInfo(module);
     mModules.append(module);
 }
 
 void Bot::init()
 {
     foreach (Module *module, mModules)
-        module->internalInit();
+        module->init();
 
     foreach (Module *module, mModules)
-        module->init();
+        module->internalInit();
 
     mTelegram->init();
 }
@@ -520,7 +550,27 @@ void Bot::init()
 //Cron
 void Bot::cronTask()
 {
-    mTelegram->accountRegisterDevice(QCoreApplication::applicationName(), QCoreApplication::applicationVersion());
-    qCInfo(BOT_CORE) << QString("Sending Keep-Alive (%1)").arg(QDateTime::currentDateTime().toString());
+    qCInfo(BOT_CORE) << tr("Running Cron (%1)").arg(QDateTime::currentDateTime().toString());
+
+    qCInfo(BOT_CORE) << tr("Sending Keep-Alive...");
+    mTelegram->wake();
+    mTelegram->accountUpdateStatus(false);
+
     mTimer->start();
+}
+
+//About
+QString Bot::aboutText() const
+{
+    auto result = tr("Telegram Bot - Version: %1 (%2)\n").arg(version())
+            .arg(versionDate().toString(BotUtils::DATE_FORMAT));
+
+    result += tr("This is Telegram Bot! A multi-purpose chatbot.\n"
+                 "My first version released on 2014/10/28 and "
+                 "worked in some academic groups for several months.\n"
+                 "Then I got completely rewritten to become a better bot "
+                 "and my first general version has been released on 2015/09/11\n"
+                 "More info @: http://telegram-bot.org/");
+
+    return result;
 }

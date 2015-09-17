@@ -4,6 +4,7 @@
 #include <QDataStream>
 
 const int BotUtils::MAX_RANGE_LEN = 100;
+const QString BotUtils::DATE_FORMAT = "yyyy/MM/dd";
 
 QByteArray BotUtils::secureRandomBytes(int cnt)
 {
@@ -60,7 +61,6 @@ QVariant BotUtils::deserialize(const QByteArray &input)
     return result;
 }
 
-#include <QDebug>
 QList<int> BotUtils::stringToRange(const QString &input, int start, int end)
 {
     QSet<int> range;

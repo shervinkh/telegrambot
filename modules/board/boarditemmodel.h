@@ -6,7 +6,7 @@
 class BoardItemModel : public QObject
 {
     Q_OBJECT
-    DECLARE_MODEL(BoardItemModel, board_item)
+    DECLARE_MODEL(BoardItemModel, board_item, 0, QDate(2015, 9, 11))
     DECLARE_MODEL_FIELD(qint64, board_id)
     DECLARE_MODEL_FIELD(QString, content)
     DECLARE_MODEL_FIELD(qint64, media_content_type)

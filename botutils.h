@@ -7,8 +7,11 @@
 
 class BotUtils
 {
-public:
+private:
     static const int MAX_RANGE_LEN;
+
+public:
+    static const QString DATE_FORMAT;
 
     static QByteArray secureRandomBytes(int cnt);
     static quint64 secureRandomLong();

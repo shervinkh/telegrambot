@@ -13,10 +13,32 @@ const int Board::MAX_BOARDS_PER_GROUP = 10;
 const int Board::MAX_ITEMS_PER_BOARD = 10;
 
 Board::Board()
-    : Module("board", 0)
+    : Module("board", 0, QDate(2015, 9, 11))
 {
+}
+
+void Board::init()
+{
+    registerCommand("board");
     registerModel(MODEL(BoardModel));
     registerModel(MODEL(BoardItemModel));
+}
+
+ModuleHelp Board::help() const
+{
+    ModuleHelp result("This module lets you create boards. Boards can be used "
+                      "to keep important events in the group or as a place to list "
+                      "things.");
+
+    result.addUsage(ModuleHelpUsage("Manage boards",
+                                    "!board, !board create name, !board del name, !board rename old_name new_name",
+                                    "!board create sup"));
+
+    result.addUsage(ModuleHelpUsage("Use boards (Assuming board name is \"sup\")",
+                                    "!sup, !sup add text, !sup del indices, !sup edit index new_text",
+                                    "!sup add Hello, World!"));
+
+    return result;
 }
 
 void Board::ensureDatabase()
@@ -50,9 +72,9 @@ void Board::onNewMessage(BInputMessage message)
     {
         auto args = message.getArgumentsArray();
         QString response;
-        bool pm = false;
+        auto pm = false;
 
-        if (args.size() > 0 && (args[0].toString() == "!board" || args[0].toString() == "/board"))
+        if (message.command() == "board")
         {
             if (args.size() > 2 && args[1].toString().startsWith("create"))
                 response = fCreateBoard(message.chatId(), args[2].toString(), message.userId(), message.date());
@@ -65,26 +87,23 @@ void Board::onNewMessage(BInputMessage message)
         }
 
         auto boardsName = cGetBoardsName(message.chatId());
-        if (args.size() > 0 && (args[0].toString().startsWith("!") || args[0].toString().startsWith("/")))
+        auto boardName = message.command();
+        if (boardsName.contains(boardName))
         {
-            auto boardName = args[0].toString().mid(1);
-            if (boardsName.contains(boardName))
-            {
-                auto boardId = getBoard(message.chatId(), boardName);
+            auto boardId = getBoard(message.chatId(), boardName);
 
-                if (args.size() > 2 && args[1].toString().startsWith("add"))
-                    response = fAddBoardItem(boardId, message.getStringFromArgument(2), message.userId(), message.date());
-                else if (args.size() > 3 && args[1].toString().startsWith("edit") && args[2].canConvert(QVariant::Int))
-                    response = fEditBoardItem(boardId, args[2].toInt(), message.getStringFromArgument(3));
-                else if (args.size() > 2 && (args[1].toString().startsWith("del") || args[1].toString().startsWith("rem")) &&
-                         args[2].canConvert(QVariant::Int))
-                    response = fDeleteBoardItem(boardId, message.getStringFromArgument(2).remove("\\s"));
-                else
-                {
-                    response = fGetBoardItems(boardId);
-                    if (args.last() == "pm")
-                        pm = true;
-                }
+            if (args.size() > 2 && args[1].toString().startsWith("add"))
+                response = fAddBoardItem(boardId, message.getStringFromArgument(2), message.userId(), message.date());
+            else if (args.size() > 3 && args[1].toString().startsWith("edit") && args[2].canConvert(QVariant::Int))
+                response = fEditBoardItem(boardId, args[2].toInt(), message.getStringFromArgument(3));
+            else if (args.size() > 2 && (args[1].toString().startsWith("del") || args[1].toString().startsWith("rem")) &&
+                     args[2].canConvert(QVariant::Int))
+                response = fDeleteBoardItem(boardId, message.getStringFromArgument(2).remove("\\s"));
+            else
+            {
+                response = fGetBoardItems(boardId);
+                if (args.last() == "pm")
+                    pm = true;
             }
         }
 
@@ -127,7 +146,7 @@ QString Board::fCreateBoard(qint64 gid, const QString &name, qint64 created_by, 
 
     auto modulesList = interface()->installedModules();
     foreach (auto module, modulesList)
-        if (module->name() == name)
+        if (module->supportingCommands().contains(name))
             return tr("This name is not allowed for a board.");
 
     auto newBoard = MODEL(BoardModel)->newInstance();

@@ -12,9 +12,11 @@
 #include <QSqlQuery>
 
 class Database;
-class Redis;
+class CoreDataStore;
+class CoreModel;
 class Module;
 class BotInterface;
+class Redis;
 
 Q_DECLARE_LOGGING_CATEGORY(BOT_CORE)
 
@@ -22,6 +24,9 @@ class Bot : public QObject
 {
     Q_OBJECT
 private:
+    static const QString sVersion;
+    static const QDate sVersionDate;
+
     static const int METADATA_UPDATE_SLICE;
     friend class BotInterface;
 
@@ -39,9 +44,10 @@ private:
 
     //MetaData
     qint64 mMetadataStart = -1;
-    qint64 mLinkdataCount = -1;
+    QList<qint64> mLinkdataList;
     void updateMetadata();
     void updateUserGroupLinks();
+    void updateNextGroupLinks();
 
     //DataGetter
     void getUserData(const User &user);
@@ -62,18 +68,27 @@ private:
     //Database
     Database *mDatabase;
 
+    //Core
+    CoreDataStore *mCoreDataStore;
+    CoreModel *mCoreModel;
+
     //Redis
-    Redis *mRedis;
+    Redis *mCoreRedis;
+    Redis *mMetaRedis;
 
     //Timer
     QTimer *mTimer;
 
 public:
     explicit Bot(Database *database, QObject *parent = 0);
-    void addModule(Module *module);
+    void installModule(Module *module);
     void init();
+    QString aboutText() const;
     Database *database() { return mDatabase; }
     BotInterface *interface() { return mBotInterface; }
+
+    static QString version() { return sVersion; }
+    static QDate versionDate() { return sVersionDate; }
 
 public slots:
     //Auth
@@ -107,6 +122,9 @@ public slots:
 
     //Cron Task
     void cronTask();
+
+    //Implementations
+    void updateNextGroupLinksImp();
 };
 
 #endif // BOT_H
