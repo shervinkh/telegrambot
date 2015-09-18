@@ -105,6 +105,9 @@ public slots:
     void onMessagesGetDialogsAnswer(qint64 id, qint32 sliceCount, const QList<Dialog> &dialogs,
                                     const QList<Message> &messages, const QList<Chat> &chats, const QList<User> &users);
 
+    //Stated Messages
+    QString decodeMessageAction(MessageAction state);
+
     //Error
     void onError(qint64 id, qint32 errorCode, QString errorText);
 

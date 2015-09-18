@@ -11,10 +11,15 @@ class Board : public Module
 
 private:
     static const QString ckBoards;
+
+    static const QString kBoardPendingMedia;
+
     static const int MAX_BOARDS_PER_GROUP;
     static const int MAX_ITEMS_PER_BOARD;
 
     qint64 getBoard(qint64 gid, const QString &name);
+    int getBoardEntryCount(qint64 board_id);
+    bool hasPendingMedia(qint64 gid, qint64 uid);
 
     QStringList cGetBoardsName(qint64 gid);
     void cInvalidateBoardCache(qint64 gid);
@@ -25,6 +30,9 @@ private:
     QString fGetBoards(qint64 gid);
 
     QString fAddBoardItem(qint64 board_id, const QString &content, qint64 created_by, const QDateTime &created_on);
+    QString fAddBoardMediaItemPhase1(qint64 gid, qint64 board_id, qint64 uid, const QString &content);
+    QString fAddBoardMediaItemPhase2(qint64 gid, qint64 uid, int mediaType, int mediaId, const QDateTime &created_on);
+    QString fViewBoardMediaItem(qint64 board_id, int idx, qint64 id, bool chat);
     QString fEditBoardItem(qint64 board_id, int idx, const QString &newContent);
     QString fDeleteBoardItem(qint64 board_id, const QString &range);
     QString fGetBoardItems(qint64 board_id);

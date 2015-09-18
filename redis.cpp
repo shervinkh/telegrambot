@@ -166,9 +166,19 @@ QVariant Redis::hset(const QString &key, const QString &field, const QVariant &v
     return command("HSET", key, field, value);
 }
 
+QVariant Redis::hexists(const QString &key, const QString &field)
+{
+    return command("HEXISTS", key, field);
+}
+
 QVariant Redis::hget(const QString &key, const QString &field)
 {
     return command("HGET", key, field);
+}
+
+QVariant Redis::hdel(const QString &key, const QString &field)
+{
+    return command("HDEL", key, field);
 }
 
 QVariant Redis::getCachedValue(const QString &key, std::function<QVariant ()> calculateFunction)

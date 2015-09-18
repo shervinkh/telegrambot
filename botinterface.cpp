@@ -42,11 +42,8 @@ QSqlQuery BotInterface::executeDatabaseQuery(const QString &query)
     return mBot->mDatabase->execute(query);
 }
 
-void BotInterface::sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo)
+InputPeer BotInterface::getPeer(qint64 id, bool chat)
 {
-    if (message.isEmpty())
-        return;
-
     InputPeer peer;
 
     if (chat)
@@ -61,7 +58,20 @@ void BotInterface::sendMessage(qint64 id, bool chat, const QString &message, qin
         peer.setAccessHash(mBot->mMetaRedis->hget(QString("user#%1").arg(id), "access_hash").toLongLong());
     }
 
-    mBot->mTelegram->messagesSendMessage(peer, BotUtils::secureRandomLong(), message, replyTo);
+    return peer;
+}
+
+void BotInterface::sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo)
+{
+    if (message.isEmpty())
+        return;
+
+    mBot->mTelegram->messagesSendMessage(getPeer(id, chat), BotUtils::secureRandomLong(), message, replyTo);
+}
+
+void BotInterface::forwardMessage(qint64 id, bool chat, qint64 msgId)
+{
+    mBot->mTelegram->messagesForwardMessage(getPeer(id, chat), msgId);
 }
 
 void BotInterface::registerModel(const QString &section, QObject *model)

@@ -12,6 +12,8 @@ class BotInterface : public QObject
 private:
     Bot *mBot;
 
+    InputPeer getPeer(qint64 id, bool chat);
+
 public:
     explicit BotInterface(Bot *bot, QObject *parent = 0);
 
@@ -24,6 +26,7 @@ public:
     void executeDatabaseQuery(QSqlQuery &query);
     const QList<Module *> &installedModules() {return mBot->mModules;}
     void sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo);
+    void forwardMessage(qint64 id, bool chat, qint64 msgId);
 
     void registerModel(const QString &section, QObject *model);
     QString getModelDatabaseTable(QObject *object);

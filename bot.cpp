@@ -284,6 +284,51 @@ void Bot::onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const
 }
 //End Messages
 
+//Start Stated Messages
+QString Bot::decodeMessageAction(MessageAction state)
+{
+    QString type;
+    switch (state.classType())
+    {
+        case MessageAction::typeMessageActionChatAddUser:
+            type = "Add User";
+            break;
+        case MessageAction::typeMessageActionChatCreate:
+            type = "Create Chat";
+            break;
+        case MessageAction::typeMessageActionChatDeletePhoto:
+            type = "Delete Photo";
+            break;
+        case MessageAction::typeMessageActionChatDeleteUser:
+            type = "Delete User";
+            break;
+        case MessageAction::typeMessageActionChatEditPhoto:
+            type = "Edit Photo";
+            break;
+        case MessageAction::typeMessageActionChatEditTitle:
+            type = "Edit Title";
+            break;
+        case MessageAction::typeMessageActionEmpty:
+            type = "Empty";
+            break;
+        case MessageAction::typeMessageActionGeoChatCheckin:
+            type = "GeoChat Checkin";
+            break;
+        case MessageAction::typeMessageActionGeoChatCreate:
+            type = "GeoChat Create";
+            break;
+        default:
+            type = "N/S";
+            break;
+    }
+
+    qCDebug(BOT_CORE) << ", title=" << state.title() << ", photo=" << state.photo().id() << ", userId=" << state.userId() <<
+                         "Users: " << state.users();
+
+    return type;
+}
+//End Stated Messages
+
 //Start Error
 void Bot::onError(qint64 id, qint32 errorCode, QString errorText)
 {
@@ -300,6 +345,13 @@ void Bot::onError(qint64 id, qint32 errorCode, QString errorText)
 void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats, qint32 date, qint32 seq)
 {
     qCDebug(BOT_CORE) << "Updates: " << endl << flush;
+
+    foreach (auto user, users)
+        getUserData(user);
+
+    foreach (auto chat, chats)
+        getChatData(chat);
+
     foreach (Update update, updates)
     {
         QString type;
@@ -331,17 +383,22 @@ void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats,
                 break;
         }
 
-        qCDebug(BOT_CORE) << "--Update: class=" << updateCode(update.classType()) << ", chatId=" << update.chatId() <<
+        qCDebug(BOT_CORE) << "--Update: class=" << updateCode(update.classType()) << ", chatId=" << (chats.isEmpty() ? 0 : chats.first().id()) <<
                   ", userId=" << update.userId() << ", message=" << update.message().message() << ' '<<
-                  ", type=" << type << ", len=" << update.message().media().bytes().length() << ", id=" << update.message().id();
+                  ", type=" << type << ", len=" << update.message().media().bytes().length() << ", id=" << update.message().id()
+                          << ", Action= " << decodeMessageAction(update.message().action()) <<
+                             ", participants: " << update.participants().participants().size();
 
         if (update.classType() == Update::typeUpdateNewMessage)
         {
             Message message = update.message();
-            BInputMessage newMessage(message.id(), message.fromId(), update.chatId(), message.date(), message.message(), message.fwdFromId(),
-                                     message.fwdDate(), message.replyToMsgId(), message.media().classType());
+            BInputMessage newMessage(message.id(), message.fromId(), chats.isEmpty() ? 0 : chats.first().id(), message.date(),
+                                     message.message(), message.fwdFromId(), message.fwdDate(), message.replyToMsgId(),
+                                     message.media().classType());
             eventNewMessage(newMessage);
         }
+        else if (update.classType() == Update::typeUpdateChatParticipants)
+            getChatParticipantsData(update.participants());
     }
 
     foreach (Chat chat, chats)
@@ -357,18 +414,12 @@ void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats,
 void Bot::onUpdatesCombined(QList<Update> updates, QList<User> users, QList<Chat> chats, qint32 date,
                             qint32 seqStart, qint32 seq)
 {
+
     qCDebug(BOT_CORE) << "Updates Combined: ";
-    foreach (Update update, updates)
-        qCDebug(BOT_CORE) << "--Update: class=" << updateCode(update.classType()) << ", chatId=" << update.chatId() <<
-                  ", userId=" << update.userId() << ", message=" << update.message().message();
 
-    foreach (Chat chat, chats)
-        qCDebug(BOT_CORE) << "--Chat: id=" << chat.id() << ", title=" << chat.title();
+    onUpdates(updates, users, chats, date, seq);
 
-    foreach (User user, users)
-        qCDebug(BOT_CORE) << "--User: id=" << user.id() << ", name=" << user.firstName() << ' ' << user.lastName();
-
-    qCDebug(BOT_CORE) << "Date=" << date << ", seqStart=" << seqStart << ", seq=" << seq;
+    qCDebug(BOT_CORE) << ", seqStart=" << seqStart << ", seq=" << seq;
 }
 
 void Bot::onUpdateShort(Update update, qint32 date)
@@ -385,10 +436,10 @@ void Bot::onUpdateShortMessage(qint32 id, qint32 userid, const QString &message,
                                qint32 pts_count, qint32 date, qint32 fwd_from_id, qint32 fwd_date,
                                qint32 reply_to_msg_id, bool unread, bool out)
 {
-    qCDebug(BOT_CORE) << "Update Short Message: id=" << id << ", userId=" << userid << ", message=" << message <<
-              ", pts=" << pts << ", pts_count=" << pts_count << ", date=" << date << ", fwd_from_id=" <<
-              fwd_from_id << ", fwd_date=" << fwd_date << ", reply_to_msg_id=" << reply_to_msg_id <<
-              ", unread=" << unread << ", out=" << out;
+    Q_UNUSED(pts)
+    Q_UNUSED(pts_count)
+    Q_UNUSED(unread)
+    Q_UNUSED(out)
 
     BInputMessage newMessage(id, userid, 0, date, message, fwd_from_id, fwd_date, reply_to_msg_id, MessageMedia::typeMessageMediaEmpty);
     eventNewMessage(newMessage);
@@ -398,10 +449,10 @@ void Bot::onUpdateShortChatMessage(qint32 id, qint32 fromId, qint32 chatId, cons
                                    qint32 pts, qint32 pts_count, qint32 date, qint32 fwd_from_id,
                                    qint32 fwd_date, qint32 reply_to_msg_id, bool unread, bool out)
 {
-    qCDebug(BOT_CORE) << "Update Short Chat Message: id=" << id << ", fromId=" << fromId << ", chatId=" << chatId <<
-              ", message=" << message << ", pts=" << pts << ", pts_count=" << pts_count << ", date=" <<
-              date << ", fwd_from_id=" << fwd_from_id << ", fwd_date=" << fwd_date << ", reply_to_msg_id=" <<
-              reply_to_msg_id << ", unread=" << unread << ", out=" << out;
+    Q_UNUSED(pts)
+    Q_UNUSED(pts_count)
+    Q_UNUSED(unread)
+    Q_UNUSED(out)
 
     BInputMessage newMessage(id, fromId, chatId, date, message, fwd_from_id, fwd_date, reply_to_msg_id, MessageMedia::typeMessageMediaEmpty);
     eventNewMessage(newMessage);

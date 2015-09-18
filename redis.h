@@ -56,7 +56,9 @@ public:
 
     //Hash
     QVariant hset(const QString &key, const QString &field, const QVariant &value);
+    QVariant hexists(const QString &key, const QString &field);
     QVariant hget(const QString &key, const QString &field);
+    QVariant hdel(const QString &key, const QString &field);
 
     //Cache
     QVariant getCachedValue(const QString &key, std::function<QVariant()> calculateFunction);
