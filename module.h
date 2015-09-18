@@ -74,6 +74,8 @@ public:
 
     virtual void onNewMessage(BInputMessage message) { Q_UNUSED(message); }
 
+    virtual void customCommand(const QString &command, const QList<QVariant> &args) { Q_UNUSED(command); Q_UNUSED(args); }
+
     //Model Interface
     BotInterface *interface() { return mBotInterface; }
 

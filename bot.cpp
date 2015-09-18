@@ -44,6 +44,7 @@ Bot::Bot(Database *database, QObject *parent)
     connect(mTelegram, &Telegram::messagesGetMessagesAnswer, this, &Bot::onMessagesGetMessagesAnswer);
     connect(mTelegram, &Telegram::messagesGetDialogsAnswer, this, &Bot::onMessagesGetDialogsAnswer);
     connect(mTelegram, &Telegram::messagesGetFullChatAnswer, this, &Bot::onMessagesGetFullChatAnswer);
+    connect(mTelegram, &Telegram::messagesSendMessageAnswer, this, &Bot::onMessagesSendMessageAnswer);
 
     //Error
     connect(mTelegram, &Telegram::error, this, &Bot::onError);
@@ -58,7 +59,6 @@ Bot::Bot(Database *database, QObject *parent)
 
     mTimer = new QTimer(this);
     connect(mTimer, &QTimer::timeout, this, &Bot::cronTask);
-    mTimer->setInterval(60000);
 }
 
 //Start Metadata
@@ -196,7 +196,8 @@ void Bot::onAuthLoggedIn()
     mLoggedIn = true;
     qCInfo(BOT_CORE) << "Logged In.";
     mTelegram->accountRegisterDevice(QCoreApplication::applicationName(), QCoreApplication::applicationVersion());
-    mTimer->start();
+
+    startCron();
 
     if (!mBotInterface->debug())
         updateMetadata();
@@ -282,7 +283,48 @@ void Bot::onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const
 
     updateNextGroupLinks();
 }
+
+void Bot::onMessagesSendMessageAnswer(qint64 id, qint32 msgId, qint32 date, qint32 pts,
+                                      qint32 pts_count, qint32 seq, const QList<ContactsLink> &links)
+{
+    Q_UNUSED(date)
+    Q_UNUSED(pts)
+    Q_UNUSED(pts_count)
+    Q_UNUSED(seq)
+    Q_UNUSED(links)
+
+    if (mBroadcastUsers.contains(id))
+    {
+        auto usersList = mBroadcastUsers[id];
+        mBroadcastUsers.remove(id);
+        continueBroadcast(msgId, usersList);
+    }
+}
 //End Messages
+
+//Start Broadcast
+void Bot::sendBroadcast(const QList<qint64> &users, const QString &message)
+{
+    InputPeer me;
+    me.setClassType(InputPeer::typeInputPeerSelf);
+
+    auto reqId = mTelegram->messagesSendMessage(me, BotUtils::secureRandomLong(), message);
+    mBroadcastUsers[reqId] = users;
+}
+
+void Bot::continueBroadcast(qint64 msgId, const QList<qint64> &users)
+{
+    foreach (auto user, users)
+    {
+        InputPeer peer;
+        peer.setClassType(InputPeer::typeInputPeerForeign);
+        peer.setUserId(user);
+        peer.setAccessHash(mMetaRedis->hget(QString("user#%1").arg(user), "access_hash").toLongLong());
+
+        mTelegram->messagesForwardMessage(peer, msgId);
+    }
+}
+//End Broadcast
 
 //Start Stated Messages
 QString Bot::decodeMessageAction(MessageAction state)
@@ -599,6 +641,15 @@ void Bot::init()
 //End Module System
 
 //Cron
+void Bot::startCron()
+{
+    auto currentTime = QTime::currentTime();
+    auto nextMinute = currentTime.addSecs(60);
+    auto targetTime = QTime(nextMinute.hour(), nextMinute.minute());
+    auto msecsToWait = qMax(currentTime.msecsTo(targetTime), 0);
+    mTimer->start(msecsToWait + 1000);
+}
+
 void Bot::cronTask()
 {
     qCInfo(BOT_CORE) << tr("Running Cron (%1)").arg(QDateTime::currentDateTime().toString());
@@ -607,7 +658,7 @@ void Bot::cronTask()
     mTelegram->wake();
     mTelegram->accountUpdateStatus(false);
 
-    mTimer->start();
+    mTimer->start(60000);
 }
 
 //About
@@ -621,7 +672,7 @@ QString Bot::aboutText() const
                  "worked in some academic groups for several months.\n"
                  "Then I got completely rewritten to become a better bot "
                  "and my first general version has been released on 2015/09/11\n"
-                 "More info @: http://telegram-bot.org/");
+                 "More info at: http://telegram-bot.org/");
 
     return result;
 }

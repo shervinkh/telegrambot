@@ -32,6 +32,17 @@ Module *BotInterface::getModule(const QString &name)
     return Q_NULLPTR;
 }
 
+GroupMetadata BotInterface::getGroupMetadata(qint64 gid)
+{
+    if (!mBot->mMetaRedis->exists(QString("chat#%1").arg(gid)).toBool())
+        return GroupMetadata();
+
+    auto title = mBot->mMetaRedis->hget(QString("chat#%1").arg(gid), "title").toString();
+    auto adminId = mBot->mMetaRedis->hget(QString("chat#%1").arg(gid), "admin").toLongLong();
+
+    return GroupMetadata(gid, title, adminId);
+}
+
 void BotInterface::executeDatabaseQuery(QSqlQuery &query)
 {
     mBot->mDatabase->execute(query);
@@ -61,12 +72,18 @@ InputPeer BotInterface::getPeer(qint64 id, bool chat)
     return peer;
 }
 
+#include <QDebug>
 void BotInterface::sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo)
 {
     if (message.isEmpty())
         return;
 
     mBot->mTelegram->messagesSendMessage(getPeer(id, chat), BotUtils::secureRandomLong(), message, replyTo);
+}
+
+void BotInterface::sendBroadcast(const QList<qint64> &users, const QString &message)
+{
+    mBot->sendBroadcast(users, message);
 }
 
 void BotInterface::forwardMessage(qint64 id, bool chat, qint64 msgId)

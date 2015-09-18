@@ -39,8 +39,8 @@ ModuleHelp Board::help() const
                                     "!sup [pm], !sup add text, !sup del indices, !sup edit index new_text",
                                     "!sup, !sup pm, !sup add Hello, World!, !sup del 6-8,4-3,1"));
 
-    result.addUsage(ModuleHelpUsage("Adding media to boards & Viewing them (Assuming board name is \"sup\")",
-                                    "!sup add_media [content], !sup media index",
+    result.addUsage(ModuleHelpUsage("Media entries (Assuming board name is \"sup\")",
+                                    "!sup add_media [content], !sup media index [pm]",
                                     "!sup add_media, !sup addmed See This!, !sup media 6"));
 
     return result;
@@ -98,7 +98,7 @@ void Board::onNewMessage(BInputMessage message)
             auto boardId = getBoard(message.chatId(), boardName);
 
             if (args.size() > 1 && (args[1].toString().startsWith("addm") || args[1].toString().startsWith("add_m")))
-                response = fAddBoardMediaItemPhase1(message.chatId(), boardId, message.userId(),
+                response = fAddBoardMediaItemPhase1(message.chatId(), boardId, boardName, message.userId(),
                                                     (args.size() > 2) ? message.getStringFromArgument(2) : "");
             else if (args.size() > 2 && args[1].toString().startsWith("media") && args[2].canConvert(QVariant::Int))
             {
@@ -107,7 +107,8 @@ void Board::onNewMessage(BInputMessage message)
                 response = fViewBoardMediaItem(boardId, args[2].toInt(), pm ? message.userId() : message.chatId(), !pm);
             }
             else if (args.size() > 2 && args[1].toString().startsWith("add"))
-                response = fAddBoardItem(boardId, message.getStringFromArgument(2), message.userId(), message.date());
+                response = fAddBoardItem(message.chatId(), boardId, boardName, message.getStringFromArgument(2),
+                                         message.userId(), message.date());
             else if (args.size() > 3 && args[1].toString().startsWith("edit") && args[2].canConvert(QVariant::Int))
                 response = fEditBoardItem(boardId, args[2].toInt(), message.getStringFromArgument(3));
             else if (args.size() > 2 && (args[1].toString().startsWith("del") || args[1].toString().startsWith("rem")) &&
@@ -231,7 +232,8 @@ QString Board::fGetBoards(qint64 gid)
     }
 }
 
-QString Board::fAddBoardItem(qint64 board_id, const QString &content, qint64 created_by, const QDateTime &created_on)
+QString Board::fAddBoardItem(qint64 gid, qint64 board_id, const QString &boardName,
+                             const QString &content, qint64 created_by, const QDateTime &created_on)
 {
     if (getBoardEntryCount(board_id) >= MAX_ITEMS_PER_BOARD)
         return tr("Maximum number of items for this board has been reached!");
@@ -245,12 +247,16 @@ QString Board::fAddBoardItem(qint64 board_id, const QString &content, qint64 cre
     newItem->setProperty("created_on", created_on);
 
     if (newItem->save())
+    {
+        sendNotification(gid, boardName, content, false);
         return tr("Added new entry to the board.");
+    }
     else
         return tr("Falied to add new item!");
 }
 
-QString Board::fAddBoardMediaItemPhase1(qint64 gid, qint64 board_id, qint64 uid, const QString &content)
+QString Board::fAddBoardMediaItemPhase1(qint64 gid, qint64 board_id, const QString &boardName,
+                                        qint64 uid, const QString &content)
 {
     if (getBoardEntryCount(board_id) >= MAX_ITEMS_PER_BOARD)
         return tr("Maximum number of items for this board has been reached!");
@@ -263,6 +269,7 @@ QString Board::fAddBoardMediaItemPhase1(qint64 gid, qint64 board_id, qint64 uid,
 
     QList<QVariant> data;
     data.append(board_id);
+    data.append(boardName);
     data.append(content.isEmpty() ? " " : content);
 
     redis()->hset(kBoardPendingMedia.arg(gid), QString::number(uid), BotUtils::serialize(data));
@@ -278,11 +285,12 @@ QString Board::fAddBoardMediaItemPhase2(qint64 gid, qint64 uid, int mediaType, i
 
     redis()->hdel(kBoardPendingMedia.arg(gid), QString::number(uid));
 
-    if (contentList.size() != 2)
+    if (contentList.size() != 3)
         return tr("Something nasty has happened!");
 
     auto board_id = contentList[0].toLongLong();
-    auto content = contentList[1].toString();
+    auto boardName = contentList[1].toString();
+    auto content = contentList[2].toString();
 
     if (getBoardEntryCount(board_id) >= MAX_ITEMS_PER_BOARD)
         return tr("Maximum number of items for this board has been reached!");
@@ -296,7 +304,10 @@ QString Board::fAddBoardMediaItemPhase2(qint64 gid, qint64 uid, int mediaType, i
     newItem->setProperty("created_on", created_on);
 
     if (newItem->save())
+    {
+        sendNotification(gid, boardName, content, true);
         return tr("Added new media entry to the board.");
+    }
     else
         return tr("Falied to add new media item!");
 }
@@ -374,5 +385,25 @@ QString Board::fGetBoardItems(qint64 board_id)
         }
 
         return result;
+    }
+}
+
+void Board::sendNotification(qint64 gid, const QString &boardName, const QString &content, bool hasMedia)
+{
+    auto tag = QString("board.%1").arg(boardName);
+
+    auto mediaString = hasMedia ? tr(" (This entry has media attachment)") : "";
+    auto text = tr("New entry for board %1:\n%2%3").arg(boardName).arg(content).arg(mediaString);
+
+    auto subscribeModule = interface()->getModule("subscribe");
+
+    if (subscribeModule)
+    {
+        QList<QVariant> args;
+        args.append(gid);
+        args.append(tag);
+        args.append(text);
+
+        subscribeModule->customCommand("sendNotification", args);
     }
 }

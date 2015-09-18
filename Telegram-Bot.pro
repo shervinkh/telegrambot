@@ -31,7 +31,8 @@ SOURCES += main.cpp \
     help/modulehelp.cpp \
     help/modulehelpusage.cpp \
     modules/help/help.cpp \
-    modules/subscribe/subscribe.cpp
+    modules/subscribe/subscribe.cpp \
+    groupmetadata.cpp
 
 HEADERS += \
     bot.h \
@@ -53,7 +54,9 @@ HEADERS += \
     help/modulehelp.h \
     help/modulehelpusage.h \
     modules/help/help.h \
-    modules/subscribe/subscribe.h
+    modules/subscribe/subscribe.h \
+    modules/subscribe/subscriptionmodel.h \
+    groupmetadata.h
 
 LIBS += -lssl -lcrypto -lz -lqtelegram-ae -lhiredis
 INCLUDEPATH += /usr/include/libqtelegram-ae $$OUT_PWD/$$DESTDIR/include/libqtelegram-ae

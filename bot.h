@@ -77,7 +77,13 @@ private:
     Redis *mMetaRedis;
 
     //Timer
+    void startCron();
     QTimer *mTimer;
+
+    //Broadcast System
+    QMap<qint64, QList<qint64>> mBroadcastUsers;
+    void sendBroadcast(const QList<qint64> &users, const QString &message);
+    void continueBroadcast(qint64 msgId, const QList<qint64> &users);
 
 public:
     explicit Bot(Database *database, QObject *parent = 0);
@@ -104,6 +110,8 @@ public slots:
     void onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const QList<Chat> &chats, const QList<User> &users);
     void onMessagesGetDialogsAnswer(qint64 id, qint32 sliceCount, const QList<Dialog> &dialogs,
                                     const QList<Message> &messages, const QList<Chat> &chats, const QList<User> &users);
+    void onMessagesSendMessageAnswer(qint64 id, qint32 msgId, qint32 date, qint32 pts, qint32 pts_count, qint32 seq,
+                                     const QList<ContactsLink> &links);
 
     //Stated Messages
     QString decodeMessageAction(MessageAction state);

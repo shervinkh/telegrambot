@@ -5,6 +5,7 @@
 #include <QSqlQuery>
 
 #include "bot.h"
+#include "groupmetadata.h"
 
 class BotInterface : public QObject
 {
@@ -21,11 +22,13 @@ public:
     bool debug();
 
     Module *getModule(const QString &name);
+    GroupMetadata getGroupMetadata(qint64 gid);
 
     QSqlQuery executeDatabaseQuery(const QString &query);
     void executeDatabaseQuery(QSqlQuery &query);
     const QList<Module *> &installedModules() {return mBot->mModules;}
     void sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo);
+    void sendBroadcast(const QList<qint64> &users, const QString &message);
     void forwardMessage(qint64 id, bool chat, qint64 msgId);
 
     void registerModel(const QString &section, QObject *model);
