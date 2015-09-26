@@ -1,12 +1,10 @@
 #include "board.h"
-#include "boardmodel.h"
-#include "boarditemmodel.h"
+#include "model.h"
+#include "botinterface.h"
 #include "bot.h"
 #include <QDataStream>
 
 DEFINE_MODULE(Board)
-DEFINE_MODEL(BoardModel)
-DEFINE_MODEL(BoardItemModel)
 
 const QString Board::ckBoards = "chat#%1.boards_name";
 const QString Board::kBoardPendingMedia = "chat#%1.pending_media";
@@ -21,8 +19,25 @@ Board::Board()
 void Board::init()
 {
     registerCommand("board");
-    registerModel(MODEL(BoardModel));
-    registerModel(MODEL(BoardItemModel));
+}
+
+void Board::registerModels()
+{
+    auto boardModel = newModel("board", 0, QDate(2015, 9, 11));
+    boardModel->addField("gid", ModelField::Integer);
+    boardModel->addField("name", ModelField::String);
+    boardModel->addField("created_by", ModelField::Integer);
+    boardModel->addField("created_on", ModelField::Timestamp);
+    registerModel(boardModel);
+
+    auto boardItemModel = newModel("board_item", 0, QDate(2015, 9, 11));
+    boardItemModel->addField("board_id", ModelField::Integer);
+    boardItemModel->addField("content", ModelField::String);
+    boardItemModel->addField("media_content_type", ModelField::Integer);
+    boardItemModel->addField("media_content_id", ModelField::Integer);
+    boardItemModel->addField("created_by", ModelField::Integer);
+    boardItemModel->addField("created_on", ModelField::Timestamp);
+    registerModel(boardItemModel);
 }
 
 ModuleHelp Board::help() const
@@ -132,17 +147,17 @@ void Board::onNewMessage(BInputMessage message)
 
 qint64 Board::getBoard(qint64 gid, const QString &name)
 {
-    auto objs = MODEL(BoardModel)->objectSet().filter("gid=? AND name=?", gid, name).select();
+    auto objs = model("board")->objectSet().filter("gid=? AND name=?", gid, name).select();
 
     if (objs.size() == 1)
-        return objs.first()->property("id").toLongLong();
+        return objs.first()["id"].toLongLong();
 
     return -1;
 }
 
 int Board::getBoardEntryCount(qint64 board_id)
 {
-    return MODEL(BoardItemModel)->objectSet().filter("board_id=?", board_id).select().size();
+    return model("board")->objectSet().filter("board_id=?", board_id).select().size();
 }
 
 bool Board::hasPendingMedia(qint64 gid, qint64 uid)
@@ -152,11 +167,11 @@ bool Board::hasPendingMedia(qint64 gid, qint64 uid)
 
 QStringList Board::cGetBoardsName(qint64 gid)
 {
-    auto result = redis()->getCachedValue(ckBoards.arg(gid), [gid] () -> QVariant {
+    auto result = redis()->getCachedValue(ckBoards.arg(gid), [this, gid] () -> QVariant {
                                               QStringList boardsName;
-                                              auto boards = MODEL(BoardModel)->objectSet().filter("gid=?", gid).select();
+                                              auto boards = model("board")->objectSet().filter("gid=?", gid).select();
                                               foreach (auto board, boards)
-                                                  boardsName.append(board->property("name").toString());
+                                                  boardsName.append(board["name"].toString());
                                               return boardsName;
                                           });
 
@@ -178,11 +193,11 @@ QString Board::fCreateBoard(qint64 gid, const QString &name, qint64 created_by, 
         if (module->supportingCommands().contains(name))
             return tr("This name is not allowed for a board.");
 
-    auto newBoard = MODEL(BoardModel)->newInstance();
-    newBoard->setProperty("gid", gid);
-    newBoard->setProperty("name", name);
-    newBoard->setProperty("created_by", created_by);
-    newBoard->setProperty("created_on", created_on);
+    auto newBoard = model("board")->newObject();
+    newBoard["gid"] = gid;
+    newBoard["name"] = name;
+    newBoard["created_by"] = created_by;
+    newBoard["created_on"] = created_on;
 
     if (newBoard->save())
     {
@@ -195,7 +210,7 @@ QString Board::fCreateBoard(qint64 gid, const QString &name, qint64 created_by, 
 
 QString Board::fRenameBoard(qint64 gid, const QString &name, const QString &newName)
 {
-    if (MODEL(BoardModel)->objectSet().filter("gid=? AND name=?", gid, name).update("name=?", newName))
+    if (model("board")->objectSet().filter("gid=? AND name=?", gid, name).update("name=?", newName))
     {
         cInvalidateBoardCache(gid);
         return tr("Successfully renamed board. Old Name: %1, New Name: %2").arg(name).arg(newName);
@@ -206,7 +221,7 @@ QString Board::fRenameBoard(qint64 gid, const QString &name, const QString &newN
 
 QString Board::fDeleteBoard(qint64 gid, const QString &name)
 {
-    if (MODEL(BoardModel)->objectSet().filter("gid=? AND name=?", gid, name).deleteObjects())
+    if (model("board")->objectSet().filter("gid=? AND name=?", gid, name).deleteObjects())
     {
         cInvalidateBoardCache(gid);
         return tr("Successfully deleted board: %1").arg(name);
@@ -238,13 +253,13 @@ QString Board::fAddBoardItem(qint64 gid, qint64 board_id, const QString &boardNa
     if (getBoardEntryCount(board_id) >= MAX_ITEMS_PER_BOARD)
         return tr("Maximum number of items for this board has been reached!");
 
-    auto newItem = MODEL(BoardItemModel)->newInstance();
-    newItem->setProperty("board_id", board_id);
-    newItem->setProperty("content", content);
-    newItem->setProperty("media_content_type", MessageMedia::typeMessageMediaEmpty);
-    newItem->setProperty("media_content_id", 0);
-    newItem->setProperty("created_by", created_by);
-    newItem->setProperty("created_on", created_on);
+    auto newItem = model("board_item")->newObject();
+    newItem["board_id"] = board_id;
+    newItem["content"] = content;
+    newItem["media_content_type"] = MessageMedia::typeMessageMediaEmpty;
+    newItem["media_content_id"] = 0;
+    newItem["created_by"] = created_by;
+    newItem["created_on"] = created_on;
 
     if (newItem->save())
     {
@@ -295,13 +310,13 @@ QString Board::fAddBoardMediaItemPhase2(qint64 gid, qint64 uid, int mediaType, i
     if (getBoardEntryCount(board_id) >= MAX_ITEMS_PER_BOARD)
         return tr("Maximum number of items for this board has been reached!");
 
-    auto newItem = MODEL(BoardItemModel)->newInstance();
-    newItem->setProperty("board_id", board_id);
-    newItem->setProperty("content", content);
-    newItem->setProperty("media_content_type", mediaType);
-    newItem->setProperty("media_content_id", mediaId);
-    newItem->setProperty("created_by", uid);
-    newItem->setProperty("created_on", created_on);
+    auto newItem = model("board_item")->newObject();
+    newItem["board_id"] = board_id;
+    newItem["content"] = content;
+    newItem["media_content_type"] = mediaType;
+    newItem["media_content_id"] = mediaId;
+    newItem["created_by"] = uid;
+    newItem["created_on"] = created_on;
 
     if (newItem->save())
     {
@@ -316,12 +331,12 @@ QString Board::fViewBoardMediaItem(qint64 board_id, int idx, qint64 id, bool cha
 {
     QString result;
 
-    auto items = MODEL(BoardItemModel)->objectSet().filter("board_id=?", board_id).select();
+    auto items = model("board_item")->objectSet().filter("board_id=?", board_id).select();
 
     if (idx < 1 || idx > items.size())
         return tr("No such entry!");
 
-    auto msgId = items[idx - 1]->property("media_content_id").toLongLong();
+    auto msgId = items[idx - 1]["media_content_id"].toLongLong();
 
     if (msgId != 0)
         interface()->forwardMessage(id, chat, msgId);
@@ -333,14 +348,14 @@ QString Board::fViewBoardMediaItem(qint64 board_id, int idx, qint64 id, bool cha
 
 QString Board::fEditBoardItem(qint64 board_id, int idx, const QString &newContent)
 {
-    auto items = MODEL(BoardItemModel)->objectSet().filter("board_id=?", board_id).select();
+    auto items = model("board_item")->objectSet().filter("board_id=?", board_id).select();
 
     if (idx < 1 || idx > items.size())
         return tr("No such entry!");
 
-    auto itemId = items[idx - 1]->property("id");
+    auto itemId = items[idx - 1]["id"];
 
-    if (MODEL(BoardItemModel)->objectSet().filter("id=?", itemId).update("content=?", newContent))
+    if (model("board_item")->objectSet().filter("id=?", itemId).update("content=?", newContent))
         return tr("Edit board entry.");
     else
         return tr("Falied to edit board entry!");
@@ -348,7 +363,7 @@ QString Board::fEditBoardItem(qint64 board_id, int idx, const QString &newConten
 
 QString Board::fDeleteBoardItem(qint64 board_id, const QString &range)
 {
-    auto items = MODEL(BoardItemModel)->objectSet().filter("board_id=?", board_id).select();
+    auto items = model("board_item")->objectSet().filter("board_id=?", board_id).select();
 
     auto entries = BotUtils::stringToRange(range, 1, items.size());
 
@@ -357,9 +372,9 @@ QString Board::fDeleteBoardItem(qint64 board_id, const QString &range)
 
     QStringList ids;
     foreach (auto entry, entries)
-        ids.append(items[entry - 1]->property("id").toString());
+        ids.append(items[entry - 1]["id"].toString());
 
-    if (MODEL(BoardItemModel)->objectSet().filter(QString("id in (%1)").arg(ids.join(", "))).deleteObjects())
+    if (model("board_item")->objectSet().filter(QString("id in (%1)").arg(ids.join(", "))).deleteObjects())
         return tr("Deleted board entry.");
     else
         return tr("Falied to delete board entry!");
@@ -367,7 +382,7 @@ QString Board::fDeleteBoardItem(qint64 board_id, const QString &range)
 
 QString Board::fGetBoardItems(qint64 board_id)
 {
-    auto items = MODEL(BoardItemModel)->objectSet().filter("board_id=?", board_id).select();
+    auto items = model("board_item")->objectSet().filter("board_id=?", board_id).select();
 
     if (items.isEmpty())
         return tr("No entry for this board!");
@@ -377,9 +392,9 @@ QString Board::fGetBoardItems(qint64 board_id)
 
         for (int i = 0; i < items.size(); i++)
         {
-            auto mediaString = items[i]->property("media_content_id").toBool() ?
+            auto mediaString = items[i]["media_content_id"].toBool() ?
                         tr(" (This entry has media attachment)") : "";
-            result += tr("%1- %2%3").arg(i + 1).arg(items[i]->property("content").toString()).arg(mediaString);
+            result += tr("%1- %2%3").arg(i + 1).arg(items[i]["content"].toString()).arg(mediaString);
             if (i != items.size() - 1)
                 result += "\n";
         }

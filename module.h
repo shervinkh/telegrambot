@@ -33,6 +33,8 @@ private: \
 #define logWarning() qCWarning(mLoggingCategory)
 #define logCritical() qCCritical(mLoggingCategory)
 
+class Model;
+
 class Module : public QObject
 {
     Q_OBJECT
@@ -51,9 +53,13 @@ protected:
     QLoggingCategory mLoggingCategory;
 
     virtual void ensureDatabase() {}
+    virtual void registerModels() {}
     virtual ModuleHelp help() const { return ModuleHelp(); }
     void registerCommand(const QString &command) { mSupportingCommands.append(command); }
-    void registerModel(QObject *model);
+
+    Model *newModel(const QString &name, qint64 version, const QDate &versionDate);
+    void registerModel(Model *model);
+    Model *model(const QString &name);
 
     Redis *redis();
 

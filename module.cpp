@@ -1,6 +1,7 @@
 #include "module.h"
 #include "botinterface.h"
 #include "bot.h"
+#include "model.h"
 
 Module::Module(const QString name, const qint64 version, const QDate &versionDate, QObject *parent)
     : QObject(parent), mName(name.toLower()), mVersion(version), mVersionDate(versionDate),
@@ -17,12 +18,23 @@ Module::~Module()
 
 void Module::internalInit()
 {
+    registerModels();
     ensureDatabase();
 }
 
-void Module::registerModel(QObject *model)
+Model *Module::newModel(const QString &name, qint64 version, const QDate &versionDate)
 {
-    interface()->registerModel(QString("modules_%1").arg(mName), model);
+    return interface()->newModel(QString("modules_%1").arg(mName), name, version, versionDate);
+}
+
+void Module::registerModel(Model *model)
+{
+    interface()->registerModel(model);
+}
+
+Model *Module::model(const QString &name)
+{
+    return interface()->model(QString("modules_%1").arg(mName), name);
 }
 
 Redis *Module::redis()

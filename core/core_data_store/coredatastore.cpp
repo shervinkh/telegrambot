@@ -1,21 +1,29 @@
 #include "coredatastore.h"
-#include "installedmodulemodel.h"
+#include "model.h"
+#include "botinterface.h"
 #include "redis.h"
 #include "module.h"
 
 #include <QTimeZone>
 
-DEFINE_MODEL(InstalledModuleModel)
-
 CoreDataStore::CoreDataStore(BotInterface *botInterface, QObject *parent)
     : QObject(parent), mBotInterface(botInterface)
 {
+    registerModels();
     ensureDatabase();
 
     mCoreRedis = new Redis("core", this);
     mMetaRedis = new Redis("meta", this);
+}
 
-    mBotInterface->registerModel("core", MODEL(InstalledModuleModel));
+void CoreDataStore::registerModels()
+{
+    auto installedModuleModel = mBotInterface->newModel("core", "installed_module", 0, QDate(2015, 9, 16));
+    installedModuleModel->addField("name", ModelField::String);
+    installedModuleModel->addField("installed_version", ModelField::Integer);
+    installedModuleModel->addField("version_date", ModelField::Timestamp);
+    installedModuleModel->addField("installed_date", ModelField::Timestamp);
+    mBotInterface->registerModel(installedModuleModel);
 }
 
 void CoreDataStore::ensureDatabase()
@@ -47,19 +55,21 @@ Redis *CoreDataStore::redis(RedisInstance instance)
 
 void CoreDataStore::updateModuleInfo(Module *module)
 {
-    auto moduleInfos = MODEL(InstalledModuleModel)->objectSet().filter("name=?", module->name()).select();
+    auto moduleInfos = mBotInterface->model("core", "installed_module")->objectSet()
+            .filter("name=?", module->name()).select();
 
-    auto moduleInfo = moduleInfos.isEmpty() ? MODEL(InstalledModuleModel)->newInstance() : moduleInfos.first();
+    auto moduleInfo = moduleInfos.isEmpty() ?
+                mBotInterface->model("core", "installed_module")->newObject() : moduleInfos.first();
 
-    if (moduleInfo->property("id").toLongLong() != -1 && moduleInfo->property("installed_version").toLongLong() == module->version())
+    if (moduleInfo->id() != -1 && moduleInfo["installed_version"].toLongLong() == module->version())
         return;
 
-    if (moduleInfo->property("id").toLongLong() == -1)
-        moduleInfo->setProperty("name", module->name());
+    if (moduleInfo->id() == -1)
+        moduleInfo["name"] = module->name();
 
-    moduleInfo->setProperty("installed_version", module->version());
-    moduleInfo->setProperty("version_date", QDateTime(module->versionDate()));
-    moduleInfo->setProperty("installed_date", QDateTime::currentDateTime());
+    moduleInfo["installed_version"] = module->version();
+    moduleInfo["version_date"] = QDateTime(module->versionDate());
+    moduleInfo["installed_date"] = QDateTime::currentDateTime();
 
     moduleInfo->save();
 }

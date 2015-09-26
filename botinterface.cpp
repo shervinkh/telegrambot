@@ -72,7 +72,6 @@ InputPeer BotInterface::getPeer(qint64 id, bool chat)
     return peer;
 }
 
-#include <QDebug>
 void BotInterface::sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo)
 {
     if (message.isEmpty())
@@ -91,99 +90,17 @@ void BotInterface::forwardMessage(qint64 id, bool chat, qint64 msgId)
     mBot->mTelegram->messagesForwardMessage(getPeer(id, chat), msgId);
 }
 
-void BotInterface::registerModel(const QString &section, QObject *model)
+Model *BotInterface::newModel(const QString &section, const QString &name, qint64 version, const QDate &versionDate)
 {
-    model->metaObject()->invokeMethod(model, "setup", Q_ARG(BotInterface *, this), Q_ARG(QString, section));
-    mBot->mCoreModel->updateModelInfo(model);
+    return new Model(this, section, name, version, versionDate);
 }
 
-QString BotInterface::getModelDatabaseTable(QObject *object)
+void BotInterface::registerModel(Model *model)
 {
-    QString modelSection, modelName;
-    object->metaObject()->invokeMethod(object, "section", Q_RETURN_ARG(QString, modelSection));
-    object->metaObject()->invokeMethod(object, "name", Q_RETURN_ARG(QString, modelName));
-    return QString("bot_%1_%2s").arg(modelSection).arg(modelName);
+    mBot->mCoreModel->registerModel(model);
 }
 
-int BotInterface::saveModelObject(QObject *object)
+Model *BotInterface::model(const QString &section, const QString &name)
 {
-    qint64 pk = object->property("id").toLongLong();
-    QSqlQuery query;
-
-    QStringList fields;
-    QList<QVariant> values;
-
-    for (int i = 2; i < object->metaObject()->propertyCount(); i++)
-    {
-        fields.append(object->metaObject()->property(i).name());
-        values.append(object->metaObject()->property(i).read(object));
-    }
-
-    if (pk == -1)
-    {
-        QString fieldString = fields.join(", ");
-        QString questionMarks;
-        QStringListIterator iter(fields);
-        while (iter.hasNext())
-        {
-            iter.next();
-            questionMarks += "?";
-            if (iter.hasNext())
-                questionMarks += ", ";
-        }
-
-        query.prepare(QString("INSERT INTO %1(%2) VALUES(%3)").arg(getModelDatabaseTable(object)).arg(fieldString).arg(questionMarks));
-        foreach (QVariant value, values)
-            query.addBindValue(value);
-
-        executeDatabaseQuery(query);
-
-        object->setProperty("id", query.lastInsertId().toLongLong());
-
-        return BotUtils::getNumRowsAffected(query);
-    }
-    else
-    {
-        QString updateQuery;
-        QStringListIterator iter(fields);
-        while (iter.hasNext())
-        {
-            updateQuery += iter.next();
-            updateQuery.append("=?");
-            if (iter.hasNext())
-                updateQuery += ", ";
-        }
-
-        query.prepare(QString("UPDATE %1 SET %2 WHERE id=?").arg(getModelDatabaseTable(object)).arg(updateQuery));
-        foreach (QVariant value, values)
-            query.addBindValue(value);
-
-        query.addBindValue(object->property("id"));
-
-        executeDatabaseQuery(query);
-
-        return BotUtils::getNumRowsAffected(query);
-    }
-}
-
-int BotInterface::deleteModelObject(QObject *object)
-{
-    qint64 pk = object->property("id").toLongLong();
-    QSqlQuery query;
-
-    if (pk != -1)
-    {
-        query.prepare(QString("DELETE FROM %1 WHERE id=?").arg(getModelDatabaseTable(object)));
-        query.addBindValue(pk);
-
-        executeDatabaseQuery(query);
-
-        auto result = BotUtils::getNumRowsAffected(query);
-        if (result)
-            object->setProperty("id", -1);
-
-        return result;
-    }
-
-    return 0;
+    return mBot->mCoreModel->model(section, name);
 }

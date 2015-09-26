@@ -12,17 +12,14 @@ private:
     void sendNotification(qint64 gid, const QString &tag, const QString &text);
 
 protected:
-    ModuleHelp help() const;
-    void ensureDatabase();
+    ModuleHelp help() const override;
+    void ensureDatabase() override;
+    void registerModels() override;
 
 public:
-    void init();
-    void onNewMessage(BInputMessage message);
-    void customCommand(const QString &command, const QList<QVariant> &args);
-
-signals:
-
-public slots:
+    void init() override;
+    void onNewMessage(BInputMessage message) override;
+    void customCommand(const QString &command, const QList<QVariant> &args) override;
 };
 
 #endif // SUBSCRIBE_H

@@ -16,6 +16,7 @@ private:
     Redis *mCoreRedis;
     Redis *mMetaRedis;
 
+    void registerModels();
     void ensureDatabase();
 
 public:

@@ -42,16 +42,13 @@ private:
     QString fGetBoardItems(qint64 board_id);
 
 protected:
-    ModuleHelp help() const;
-    void ensureDatabase();
+    ModuleHelp help() const override;
+    void ensureDatabase() override;
+    void registerModels() override;
 
 public:
-    void init();
-    void onNewMessage(BInputMessage message);
-
-signals:
-
-public slots:
+    void init() override;
+    void onNewMessage(BInputMessage message) override;
 };
 
 #endif // BOARD_H

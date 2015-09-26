@@ -32,7 +32,12 @@ SOURCES += main.cpp \
     help/modulehelpusage.cpp \
     modules/help/help.cpp \
     modules/subscribe/subscribe.cpp \
-    groupmetadata.cpp
+    groupmetadata.cpp \
+    model.cpp \
+    modelfield.cpp \
+    modelobject.cpp \
+    modelobjectset.cpp \
+    modelobjectpointer.cpp
 
 HEADERS += \
     bot.h \
@@ -43,20 +48,19 @@ HEADERS += \
     botutils.h \
     redis.h \
     modules/board/board.h \
-    modules/board/boardmodel.h \
-    model.h \
-    modules/board/boarditemmodel.h \
     botinterface.h \
-    core/core_data_store/installedmodulemodel.h \
     core/core_data_store/coredatastore.h \
     core/core_model/coremodel.h \
-    core/core_model/installedmodelmodel.h \
     help/modulehelp.h \
     help/modulehelpusage.h \
     modules/help/help.h \
     modules/subscribe/subscribe.h \
-    modules/subscribe/subscriptionmodel.h \
-    groupmetadata.h
+    groupmetadata.h \
+    model.h \
+    modelfield.h \
+    modelobject.h \
+    modelobjectset.h \
+    modelobjectpointer.h
 
 LIBS += -lssl -lcrypto -lz -lqtelegram-ae -lhiredis
 INCLUDEPATH += /usr/include/libqtelegram-ae $$OUT_PWD/$$DESTDIR/include/libqtelegram-ae

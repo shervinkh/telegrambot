@@ -1,9 +1,8 @@
 #include "subscribe.h"
-#include "subscriptionmodel.h"
+#include "model.h"
 #include "botinterface.h"
 
 DEFINE_MODULE(Subscribe)
-DEFINE_MODEL(SubscriptionModel)
 
 Subscribe::Subscribe()
     : Module("subscribe", 0, QDate(2015, 9, 18))
@@ -15,7 +14,15 @@ void Subscribe::init()
 {
     registerCommand("subscribe");
     registerCommand("unsubscribe");
-    registerModel(MODEL(SubscriptionModel));
+}
+
+void Subscribe::registerModels()
+{
+    auto subscriptionModel = newModel("subscription", 0, QDate(2015, 9, 18));
+    subscriptionModel->addField("gid", ModelField::Integer);
+    subscriptionModel->addField("uid", ModelField::Integer);
+    subscriptionModel->addField("subscribed_on", ModelField::Timestamp);
+    registerModel(subscriptionModel);
 }
 
 void Subscribe::ensureDatabase()
@@ -63,10 +70,10 @@ void Subscribe::onNewMessage(BInputMessage message)
 
 QString Subscribe::fSubscribe(qint64 gid, qint64 uid, const QDateTime &subscribed_on)
 {
-    auto newItem = MODEL(SubscriptionModel)->newInstance();
-    newItem->setProperty("gid", gid);
-    newItem->setProperty("uid", uid);
-    newItem->setProperty("subscribed_on", subscribed_on);
+    auto newItem = model("subscription")->newObject();
+    newItem["gid"] = gid;
+    newItem["uid"] = uid;
+    newItem["subscribed_on"] = subscribed_on;
 
     if (newItem->save())
         return tr("You subscribed successfully!");
@@ -76,7 +83,7 @@ QString Subscribe::fSubscribe(qint64 gid, qint64 uid, const QDateTime &subscribe
 
 QString Subscribe::fUnsubscribe(qint64 gid, qint64 uid)
 {
-    if (MODEL(SubscriptionModel)->objectSet().filter("gid=? AND uid=?", gid, uid).deleteObjects())
+    if (model("subscription")->objectSet().filter("gid=? AND uid=?", gid, uid).deleteObjects())
         return tr("You unsubscribed successfully!");
     else
         return tr("Falied to unsubscribe! Maybe you have not subscribed.");
@@ -98,10 +105,10 @@ void Subscribe::sendNotification(qint64 gid, const QString &tag, const QString &
     auto groupMetadata = interface()->getGroupMetadata(gid);
     auto broadcastString = tr("Notification from %1 (%2):\n%3").arg(groupMetadata.title()).arg(tag).arg(text);
 
-    auto subscriptions = MODEL(SubscriptionModel)->objectSet().filter("gid=?", gid).select();
+    auto subscriptions = model("subscription")->objectSet().filter("gid=?", gid).select();
     QList<qint64> users;
     foreach (auto subscription, subscriptions)
-        users.append(subscription->property("uid").toLongLong());
+        users.append(subscription["uid"].toLongLong());
 
     interface()->sendBroadcast(users, broadcastString);
 }

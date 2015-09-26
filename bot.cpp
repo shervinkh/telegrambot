@@ -647,7 +647,7 @@ void Bot::startCron()
     auto nextMinute = currentTime.addSecs(60);
     auto targetTime = QTime(nextMinute.hour(), nextMinute.minute());
     auto msecsToWait = qMax(currentTime.msecsTo(targetTime), 0);
-    mTimer->start(msecsToWait + 1000);
+    mTimer->start(msecsToWait + 1);
 }
 
 void Bot::cronTask()

@@ -6,6 +6,8 @@
 
 #include "bot.h"
 #include "groupmetadata.h"
+#include "model.h"
+#include "modelobject.h"
 
 class BotInterface : public QObject
 {
@@ -31,10 +33,10 @@ public:
     void sendBroadcast(const QList<qint64> &users, const QString &message);
     void forwardMessage(qint64 id, bool chat, qint64 msgId);
 
-    void registerModel(const QString &section, QObject *model);
-    QString getModelDatabaseTable(QObject *object);
-    int saveModelObject(QObject *object);
-    int deleteModelObject(QObject *object);
+    Model *newModel(const QString &section, const QString &name, qint64 version,
+                    const QDate &versionDate);
+    void registerModel(Model *model);
+    Model *model(const QString &section, const QString &name);
 };
 
 #endif // BOTINTERFACE_H
