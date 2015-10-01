@@ -4,6 +4,7 @@
 #include <QByteArray>
 #include <QVariant>
 #include <QSqlQuery>
+#include <QDateTime>
 
 class BotUtils
 {

@@ -55,7 +55,7 @@ void CoreDataStore::updateModuleInfo(Module *module)
 
     moduleInfo["installed_version"] = module->version();
     moduleInfo["version_date"] = QDateTime(module->versionDate());
-    moduleInfo["installed_date"] = QDateTime::currentDateTime();
+    moduleInfo["installed_date"] = QDateTime::currentDateTimeUtc();
 
     moduleInfo->save();
 }

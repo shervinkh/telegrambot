@@ -19,10 +19,10 @@ BInputMessage::BInputMessage(qint64 id, qint64 userId, qint64 chatId, qint64 dat
     mId = id;
     mUserId = userId;
     mChatId = chatId;
-    mDate = QDateTime::fromMSecsSinceEpoch(date * 1000);
+    mDate = QDateTime::fromMSecsSinceEpoch(date * 1000).toUTC();
     mMessage = message;
     mForwardedFrom = forwardedFrom;
-    mForwardedDate = QDateTime::fromMSecsSinceEpoch(forwardedDate * 1000);
+    mForwardedDate = QDateTime::fromMSecsSinceEpoch(forwardedDate * 1000).toUTC();
     mReplyFromId = replyFromId;
     mReplyFromUser = 0;
     mMessageMediaType = messageMediaType;

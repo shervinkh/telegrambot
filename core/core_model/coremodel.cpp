@@ -44,7 +44,7 @@ void CoreModel::updateModelInfo(Model *model)
 
     thisModel["installed_version"] = model->version();
     thisModel["version_date"] = QDateTime(model->versionDate());
-    thisModel["installed_date"] = QDateTime::currentDateTime();
+    thisModel["installed_date"] = QDateTime::currentDateTimeUtc();
 
     thisModel->save();
 }

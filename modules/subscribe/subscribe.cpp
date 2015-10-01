@@ -42,7 +42,6 @@ void Subscribe::onNewMessage(BInputMessage message)
 {
     if (message.chatId())
     {
-        auto args = message.getArgumentsArray();
         QString response;
 
         if (message.command() == "subscribe")
