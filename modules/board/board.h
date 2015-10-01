@@ -43,7 +43,6 @@ private:
 
 protected:
     ModuleHelp help() const override;
-    void ensureDatabase() override;
     void registerModels() override;
 
 public:

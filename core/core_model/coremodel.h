@@ -15,7 +15,6 @@ private:
     QMap<QString, Model *> mRegisteredModels;
 
     void registerModels();
-    void ensureDatabase();
 
 public:
     explicit CoreModel(BotInterface *botInterface, QObject *parent = 0);

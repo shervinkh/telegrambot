@@ -37,7 +37,8 @@ SOURCES += main.cpp \
     modelfield.cpp \
     modelobject.cpp \
     modelobjectset.cpp \
-    modelobjectpointer.cpp
+    modelobjectpointer.cpp \
+    botconfig.cpp
 
 HEADERS += \
     bot.h \
@@ -60,7 +61,8 @@ HEADERS += \
     modelfield.h \
     modelobject.h \
     modelobjectset.h \
-    modelobjectpointer.h
+    modelobjectpointer.h \
+    botconfig.h
 
 LIBS += -lssl -lcrypto -lz -lqtelegram-ae -lhiredis
 INCLUDEPATH += /usr/include/libqtelegram-ae $$OUT_PWD/$$DESTDIR/include/libqtelegram-ae

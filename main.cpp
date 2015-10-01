@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 
     qputenv("QT_LOGGING_RULES", "tg.*=false");
     //qputenv("QT_LOGGING_RULES", "tg.*=false\nbot.*.debug=false");
-    //qputenv("DEBUG", "true");
+    qputenv("DEBUG", "true");
 
     Database database;
 

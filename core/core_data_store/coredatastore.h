@@ -17,7 +17,6 @@ private:
     Redis *mMetaRedis;
 
     void registerModels();
-    void ensureDatabase();
 
 public:
     enum RedisInstance {CoreRedis, MetaRedis};

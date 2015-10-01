@@ -52,7 +52,6 @@ private:
 protected:
     QLoggingCategory mLoggingCategory;
 
-    virtual void ensureDatabase() {}
     virtual void registerModels() {}
     virtual ModuleHelp help() const { return ModuleHelp(); }
     void registerCommand(const QString &command) { mSupportingCommands.append(command); }

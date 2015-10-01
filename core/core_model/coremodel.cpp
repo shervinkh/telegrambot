@@ -7,38 +7,23 @@
 CoreModel::CoreModel(BotInterface *botInterface, QObject *parent)
     : QObject(parent), mBotInterface(botInterface)
 {
-    ensureDatabase();
 }
 
 void CoreModel::registerModels()
 {
     auto installedModelModel = mBotInterface->newModel("core", "installed_model", 0, QDate(2015, 9, 17));
-    installedModelModel->addField("section", ModelField::String);
-    installedModelModel->addField("name", ModelField::String);
-    installedModelModel->addField("installed_version", ModelField::Integer);
+    installedModelModel->addField("section", ModelField::String).notNull();
+    installedModelModel->addField("name", ModelField::String).notNull();
+    installedModelModel->addField("installed_version", ModelField::Integer).notNull();
     installedModelModel->addField("version_date", ModelField::Timestamp);
     installedModelModel->addField("installed_date", ModelField::Timestamp);
+    installedModelModel->addUniqueIndex("section", "name");
     mBotInterface->registerModel(installedModelModel);
 }
 
 void CoreModel::init()
 {
     registerModels();
-}
-
-void CoreModel::ensureDatabase()
-{
-    mBotInterface->executeDatabaseQuery("CREATE TABLE IF NOT EXISTS bot_core_installed_models ("
-                               "    id bigserial PRIMARY KEY,"
-                               "    section text NOT NULL,"
-                               "    name text NOT NULL,"
-                               "    installed_version bigint NOT NULL,"
-                               "    version_date timestamp with time zone,"
-                               "    installed_date timestamp with time zone"
-                               ")");
-
-    mBotInterface->executeDatabaseQuery("CREATE UNIQUE INDEX unique_section_name_index "
-                               "ON bot_core_installed_models(section, name)");
 }
 
 void CoreModel::updateModelInfo(Model *model)
@@ -72,6 +57,11 @@ void CoreModel::registerModel(Model *model)
     Q_ASSERT_X(!mRegisteredModels.contains(model->fullName()), assertWhere.data(), assertWhat.data());
 
     mRegisteredModels[model->fullName()] = model;
+
+    auto createQueries = model->createQueries();
+    foreach (auto query, createQueries)
+        mBotInterface->executeDatabaseQuery(query);
+
     updateModelInfo(model);
 }
 

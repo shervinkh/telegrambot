@@ -19,26 +19,12 @@ void Subscribe::init()
 void Subscribe::registerModels()
 {
     auto subscriptionModel = newModel("subscription", 0, QDate(2015, 9, 18));
-    subscriptionModel->addField("gid", ModelField::Integer);
-    subscriptionModel->addField("uid", ModelField::Integer);
+    subscriptionModel->addField("gid", ModelField::Integer).notNull();
+    subscriptionModel->addField("uid", ModelField::Integer).notNull();
     subscriptionModel->addField("subscribed_on", ModelField::Timestamp);
+    subscriptionModel->addUniqueIndex("gid", "uid");
+    subscriptionModel->addIndex("gid");
     registerModel(subscriptionModel);
-}
-
-void Subscribe::ensureDatabase()
-{
-    interface()->executeDatabaseQuery("CREATE TABLE IF NOT EXISTS bot_modules_subscribe_subscriptions ("
-                               "    id bigserial PRIMARY KEY,"
-                               "    gid bigint NOT NULL,"
-                               "    uid bigint NOT NULL,"
-                               "    subscribed_on timestamp with time zone"
-                               ")");
-
-    interface()->executeDatabaseQuery("CREATE UNIQUE INDEX unique_gid_uid_index "
-                               "ON bot_modules_subscribe_subscriptions(gid, uid)");
-
-    interface()->executeDatabaseQuery("CREATE INDEX gid_index "
-                               "ON bot_modules_subscribe_subscriptions(gid)");
 }
 
 ModuleHelp Subscribe::help() const

@@ -24,19 +24,21 @@ void Board::init()
 void Board::registerModels()
 {
     auto boardModel = newModel("board", 0, QDate(2015, 9, 11));
-    boardModel->addField("gid", ModelField::Integer);
-    boardModel->addField("name", ModelField::String);
+    boardModel->addField("gid", ModelField::Integer).notNull();
+    boardModel->addField("name", ModelField::String).notNull();
     boardModel->addField("created_by", ModelField::Integer);
     boardModel->addField("created_on", ModelField::Timestamp);
+    boardModel->addUniqueIndex("name", "gid");
     registerModel(boardModel);
 
     auto boardItemModel = newModel("board_item", 0, QDate(2015, 9, 11));
-    boardItemModel->addField("board_id", ModelField::Integer);
+    boardItemModel->addField("board_id", ModelField::Integer).foriegnKey(boardModel);
     boardItemModel->addField("content", ModelField::String);
     boardItemModel->addField("media_content_type", ModelField::Integer);
     boardItemModel->addField("media_content_id", ModelField::Integer);
     boardItemModel->addField("created_by", ModelField::Integer);
     boardItemModel->addField("created_on", ModelField::Timestamp);
+    boardItemModel->addIndex("board_id");
     registerModel(boardItemModel);
 }
 
@@ -59,31 +61,6 @@ ModuleHelp Board::help() const
                                     "!sup add_media, !sup addmed See This!, !sup media 6"));
 
     return result;
-}
-
-void Board::ensureDatabase()
-{
-    interface()->executeDatabaseQuery("CREATE TABLE IF NOT EXISTS bot_modules_board_boards ("
-                               "    id bigserial PRIMARY KEY,"
-                               "    name text NOT NULL,"
-                               "    gid bigint NOT NULL,"
-                               "    created_by bigint,"
-                               "    created_on timestamp with time zone"
-                               ")");
-    interface()->executeDatabaseQuery("CREATE UNIQUE INDEX unique_name_gid_index "
-                               "ON bot_modules_board_boards(name, gid)");
-
-    interface()->executeDatabaseQuery("CREATE TABLE IF NOT EXISTS bot_modules_board_board_items ("
-                               "    id bigserial PRIMARY KEY,"
-                               "    board_id bigint REFERENCES bot_modules_board_boards(id) ON DELETE CASCADE ON UPDATE CASCADE,"
-                               "    content text,"
-                               "    media_content_type bigint,"
-                               "    media_content_id bigint,"
-                               "    created_by bigint,"
-                               "    created_on timestamp with time zone"
-                               ")");
-    interface()->executeDatabaseQuery("CREATE INDEX board_id_index "
-                               "ON bot_modules_board_board_items(board_id)");
 }
 
 void Board::onNewMessage(BInputMessage message)

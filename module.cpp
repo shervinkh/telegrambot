@@ -19,7 +19,6 @@ Module::~Module()
 void Module::internalInit()
 {
     registerModels();
-    ensureDatabase();
 }
 
 Model *Module::newModel(const QString &name, qint64 version, const QDate &versionDate)

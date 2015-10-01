@@ -26,20 +26,43 @@ private:
     QDate mVersionDate;
 
     QMap<QString, ModelField> mFields;
+    QMap<QString, QStringList> mIndexes;
+    QMap<QString, QStringList> mUniqueIndexes;
+
+    QString mOverridedDatabaseTable;
+
+    void addIndexImp(const QList<QVariant> &args, bool unique = false);
+
+    QString createTableQuery() const;
+    QList<QString> createIndexQueries() const;
 
 public:
     Model() {}
     Model(BotInterface *botInterface, const QString &section, const QString &name,
           qint64 version, const QDate &versionDate);
     ModelField &addField(const QString &fieldName, ModelField::FieldType fieldType);
+    void overrideDatabaseTable(const QString &name) { mOverridedDatabaseTable = name; }
     ModelObjectPointer newObject() { return ModelObjectPointer(new ModelObject(this)); }
     ModelObjectSet objectSet() { return ModelObjectSet(this); }
 
+    template<typename... Types>
+    void addIndex(Types... args)
+    {
+        return addIndexImp(BotUtils::convertArgsToList(args...));
+    }
+
+    template<typename... Types>
+    void addUniqueIndex(Types... args)
+    {
+        return addIndexImp(BotUtils::convertArgsToList(args...), true);
+    }
+
+    QList<QString> createQueries() const;
     QString section() const { return mSection; }
     QString name() const { return mName; }
     QString fullName() const { return QString("%1_%2").arg(mSection).arg(mName); }
     QStringList fields() const { return mFields.keys(); }
-    QString databaseTable() const { return QString("bot_%1s").arg(fullName()); }
+    QString databaseTable() const;
     qint64 version() const { return mVersion; }
     QDate versionDate() const { return mVersionDate; }
 };
