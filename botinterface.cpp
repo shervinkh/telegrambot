@@ -2,6 +2,7 @@
 #include "botutils.h"
 #include "module.h"
 #include "core/core_model/coremodel.h"
+#include "core/core_config/coreconfig.h"
 #include "database.h"
 #include "redis.h"
 
@@ -103,4 +104,14 @@ void BotInterface::registerModel(Model *model)
 Model *BotInterface::model(const QString &section, const QString &name)
 {
     return mBot->mCoreModel->model(section, name);
+}
+
+BotConfig *BotInterface::config(const QString &name)
+{
+    return mBot->mCoreConfig->config(name);
+}
+
+void BotInterface::registerConfig(BotConfig *botConfig)
+{
+    mBot->mCoreConfig->registerConfig(botConfig);
 }

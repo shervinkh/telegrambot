@@ -5,6 +5,7 @@
 #include "modules/board/board.h"
 #include "modules/help/help.h"
 #include "modules/subscribe/subscribe.h"
+#include "modules/config/configmodule.h"
 
 #include <telegram.h>
 
@@ -30,6 +31,7 @@ int main(int argc, char *argv[])
     bot.installModule(MODULE(Board));
     bot.installModule(MODULE(Help));
     bot.installModule(MODULE(Subscribe));
+    bot.installModule(MODULE(ConfigModule));
     bot.init();
 
     return app.exec();

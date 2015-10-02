@@ -2,31 +2,51 @@
 #define BOTCONFIG_H
 
 #include "model.h"
+#include "configfield.h"
 
 class BotInterface;
+class Redis;
 
-class BotConfig : private Model
+class BotConfig
 {
+public:
+    typedef QMap<QString, ConfigField> ConfigFields;
+
 private:
+    static const QString ckGidUidConfigs;
+
     BotInterface *mBotInterface;
 
-    QString mSection;
     QString mName;
     qint64 mVersion;
     QDate mVersionDate;
 
     Model *mModel;
+    Redis *mRedis;
+
+    ConfigFields mFields;
+
+    void loadValues();
+    void cInvalidateGidUidCache(qint64 gid, qint64 uid = 0);
+    bool setGidUidConfig(qint64 gid, qint64 uid, const QString &name, const QVariant &value);\
+    bool resetGidUidConfig(qint64 gid, qint64 uid, const QString &name);
+    bool canSetConfig(const QString &name, const QVariant &value);
 
 public:
     BotConfig();
-    BotConfig(BotInterface *botInterface, const QString &section, const QString &name,
-              qint64 version, const QDate &versionDate);
+    BotConfig(BotInterface *botInterface, const QString &name);
 
-    QString section() const { return mSection; }
+    ConfigField &addField(const QString &fieldName, ConfigField::FieldType fieldType,
+                          const QVariant &defaultValue, bool isGlobal = false);
+
+    void registerConfig();
+    ConfigFields getConfig(qint64 gid, qint64 uid = 0);
+
+    bool setConfig(qint64 gid, qint64 uid, const QString &name, const QVariant &value);
+    bool setDefaultConfig(const QString &name, const QVariant &value);
+    bool setGlobalConfig(const QString &name, const QVariant &value);
+
     QString name() const { return mName; }
-    QString fullName() const { return QString("%1_%2").arg(mSection).arg(mName); }
-    qint64 version() const { return mVersion; }
-    QDate versionDate() const { return mVersionDate; }
 };
 
 #endif // BOTCONFIG_H

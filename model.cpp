@@ -147,3 +147,8 @@ QList<QString> Model::createQueries() const
     queries.append(createIndexQueries());
     return queries;
 }
+
+void Model::registerModel()
+{
+    mBotInterface->registerModel(this);
+}

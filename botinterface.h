@@ -7,6 +7,7 @@
 #include "bot.h"
 #include "groupmetadata.h"
 #include "model.h"
+#include "botconfig.h"
 #include "modelobject.h"
 
 class BotInterface : public QObject
@@ -37,6 +38,9 @@ public:
                     const QDate &versionDate);
     void registerModel(Model *model);
     Model *model(const QString &section, const QString &name);
+
+    BotConfig *config(const QString &name);
+    void registerConfig(BotConfig *botConfig);
 };
 
 #endif // BOTINTERFACE_H

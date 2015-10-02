@@ -15,10 +15,6 @@ protected:
 public:
     void init();
     void onNewMessage(BInputMessage message);
-
-signals:
-
-public slots:
 };
 
 #endif // HELP_H

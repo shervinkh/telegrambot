@@ -44,6 +44,7 @@ public:
     void overrideDatabaseTable(const QString &name) { mOverridedDatabaseTable = name; }
     ModelObjectPointer newObject() { return ModelObjectPointer(new ModelObject(this)); }
     ModelObjectSet objectSet() { return ModelObjectSet(this); }
+    void registerModel();
 
     template<typename... Types>
     void addIndex(Types... args)

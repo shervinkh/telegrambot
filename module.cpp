@@ -6,9 +6,8 @@
 Module::Module(const QString name, const qint64 version, const QDate &versionDate, QObject *parent)
     : QObject(parent), mName(name.toLower()), mVersion(version), mVersionDate(versionDate),
       mLoggingCategoryName(QByteArray("bot.modules.").append(mName)),
-      mRedis(Q_NULLPTR), mLoggingCategory(mLoggingCategoryName.data())
+      mRedis(Q_NULLPTR), mConfig(Q_NULLPTR), mLoggingCategory(mLoggingCategoryName.data())
 {
-
 }
 
 Module::~Module()
@@ -19,16 +18,30 @@ Module::~Module()
 void Module::internalInit()
 {
     registerModels();
+    registerConfigs();
+}
+
+BotConfig *Module::config()
+{
+    if (!mConfig)
+    {
+        mConfig = new BotConfig(mBotInterface, QString("modules_%1").arg(mName));
+        mConfig->addField("enabled_global", ConfigField::Boolean, true, true);
+        mConfig->addField("enabled", ConfigField::Boolean, true);
+    }
+
+    return mConfig;
+}
+
+void Module::registerConfigs()
+{
+    auto conf = config();
+    conf->registerConfig();
 }
 
 Model *Module::newModel(const QString &name, qint64 version, const QDate &versionDate)
 {
     return interface()->newModel(QString("modules_%1").arg(mName), name, version, versionDate);
-}
-
-void Module::registerModel(Model *model)
-{
-    interface()->registerModel(model);
 }
 
 Model *Module::model(const QString &name)

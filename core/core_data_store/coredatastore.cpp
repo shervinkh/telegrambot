@@ -23,7 +23,7 @@ void CoreDataStore::registerModels()
     installedModuleModel->addField("version_date", ModelField::Timestamp);
     installedModuleModel->addField("installed_date", ModelField::Timestamp);
     installedModuleModel->addUniqueIndex("name");
-    mBotInterface->registerModel(installedModuleModel);
+    installedModuleModel->registerModel();
 }
 
 Redis *CoreDataStore::redis(RedisInstance instance)

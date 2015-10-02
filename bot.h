@@ -14,6 +14,7 @@
 class Database;
 class CoreDataStore;
 class CoreModel;
+class CoreConfig;
 class Module;
 class BotInterface;
 class Redis;
@@ -71,6 +72,7 @@ private:
     //Core
     CoreDataStore *mCoreDataStore;
     CoreModel *mCoreModel;
+    CoreConfig *mCoreConfig;
 
     //Redis
     Redis *mCoreRedis;

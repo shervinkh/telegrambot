@@ -5,6 +5,7 @@
 #include "botutils.h"
 #include "bot.h"
 #include "redis.h"
+#include "botconfig.h"
 #include "help/modulehelp.h"
 
 #include <QObject>
@@ -47,17 +48,20 @@ private:
     Redis *mRedis;
     BotInterface *mBotInterface;
 
+    BotConfig *mConfig;
+
     QList<QString> mSupportingCommands;
 
 protected:
     QLoggingCategory mLoggingCategory;
 
     virtual void registerModels() {}
+    virtual void registerConfigs();
     virtual ModuleHelp help() const { return ModuleHelp(); }
     void registerCommand(const QString &command) { mSupportingCommands.append(command); }
+    BotConfig *config();
 
     Model *newModel(const QString &name, qint64 version, const QDate &versionDate);
-    void registerModel(Model *model);
     Model *model(const QString &name);
 
     Redis *redis();

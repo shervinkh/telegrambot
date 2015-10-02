@@ -18,7 +18,7 @@ void CoreModel::registerModels()
     installedModelModel->addField("version_date", ModelField::Timestamp);
     installedModelModel->addField("installed_date", ModelField::Timestamp);
     installedModelModel->addUniqueIndex("section", "name");
-    mBotInterface->registerModel(installedModelModel);
+    installedModelModel->registerModel();
 }
 
 void CoreModel::init()
@@ -62,7 +62,8 @@ void CoreModel::registerModel(Model *model)
     foreach (auto query, createQueries)
         mBotInterface->executeDatabaseQuery(query);
 
-    updateModelInfo(model);
+    if (model->section() != "config")
+        updateModelInfo(model);
 }
 
 Model *CoreModel::model(const QString &section, const QString &name)

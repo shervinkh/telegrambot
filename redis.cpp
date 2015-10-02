@@ -181,14 +181,14 @@ QVariant Redis::hdel(const QString &key, const QString &field)
     return command("HDEL", key, field);
 }
 
-QVariant Redis::getCachedValue(const QString &key, std::function<QVariant ()> calculateFunction)
+QVariant Redis::getCachedValue(const QString &key, std::function<QVariant ()> calculateFunction, int ttl)
 {
     auto cacheKey = QString("cache.%1").arg(key);
 
     if (!exists(cacheKey).toBool())
     {
         auto result = calculateFunction();
-        set(cacheKey, BotUtils::serialize(result));
+        set(cacheKey, BotUtils::serialize(result), ttl);
     }
 
     return BotUtils::deserialize(get(cacheKey).toByteArray());

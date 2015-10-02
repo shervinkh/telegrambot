@@ -24,7 +24,7 @@ void Subscribe::registerModels()
     subscriptionModel->addField("subscribed_on", ModelField::Timestamp);
     subscriptionModel->addUniqueIndex("gid", "uid");
     subscriptionModel->addIndex("gid");
-    registerModel(subscriptionModel);
+    subscriptionModel->registerModel();
 }
 
 ModuleHelp Subscribe::help() const

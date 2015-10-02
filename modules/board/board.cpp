@@ -29,7 +29,7 @@ void Board::registerModels()
     boardModel->addField("created_by", ModelField::Integer);
     boardModel->addField("created_on", ModelField::Timestamp);
     boardModel->addUniqueIndex("name", "gid");
-    registerModel(boardModel);
+    boardModel->registerModel();
 
     auto boardItemModel = newModel("board_item", 0, QDate(2015, 9, 11));
     boardItemModel->addField("board_id", ModelField::Integer).foriegnKey(boardModel);
@@ -39,7 +39,7 @@ void Board::registerModels()
     boardItemModel->addField("created_by", ModelField::Integer);
     boardItemModel->addField("created_on", ModelField::Timestamp);
     boardItemModel->addIndex("board_id");
-    registerModel(boardItemModel);
+    boardItemModel->registerModel();
 }
 
 ModuleHelp Board::help() const

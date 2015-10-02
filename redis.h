@@ -61,7 +61,7 @@ public:
     QVariant hdel(const QString &key, const QString &field);
 
     //Cache
-    QVariant getCachedValue(const QString &key, std::function<QVariant()> calculateFunction);
+    QVariant getCachedValue(const QString &key, std::function<QVariant()> calculateFunction, int ttl = -1);
     void invalidateCache(const QString &key);
 };
 

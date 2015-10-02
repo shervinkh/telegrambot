@@ -2,6 +2,7 @@
 #include "database.h"
 #include "core/core_data_store/coredatastore.h"
 #include "core/core_model/coremodel.h"
+#include "core/core_config/coreconfig.h"
 #include "redis.h"
 #include "module.h"
 #include "botinterface.h"
@@ -23,6 +24,7 @@ Bot::Bot(Database *database, QObject *parent)
     mBotInterface = new BotInterface(this, this);
     mCoreModel = new CoreModel(mBotInterface, this);
     mCoreModel->init();
+    mCoreConfig = new CoreConfig(mBotInterface, this);
     mCoreDataStore = new CoreDataStore(mBotInterface, this);
     mCoreRedis = mCoreDataStore->redis(CoreDataStore::CoreRedis);
     mMetaRedis = mCoreDataStore->redis(CoreDataStore::MetaRedis);
