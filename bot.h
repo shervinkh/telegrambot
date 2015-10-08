@@ -44,11 +44,14 @@ private:
     QString updateCode(int code); //TODO: Delete it
 
     //MetaData
+    qint64 mSuperuserId;
     qint64 mMetadataStart = -1;
     QList<qint64> mLinkdataList;
     void updateMetadata();
+    void updateNextMetadata();
     void updateUserGroupLinks();
     void updateNextGroupLinks();
+    BInputMessage::AccessLevel userAccessLevel(qint64 gid, qint64 uid);
 
     //DataGetter
     void getUserData(const User &user);
@@ -88,7 +91,7 @@ private:
     void continueBroadcast(qint64 msgId, const QList<qint64> &users);
 
 public:
-    explicit Bot(Database *database, QObject *parent = 0);
+    explicit Bot(Database *database, qint64 superuserId, QObject *parent = 0);
     void installModule(Module *module);
     void init();
     QString aboutText() const;
@@ -138,6 +141,7 @@ public slots:
 
     //Implementations
     void updateNextGroupLinksImp();
+    void updateNextMetadataImp();
 };
 
 #endif // BOT_H

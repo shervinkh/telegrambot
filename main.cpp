@@ -18,20 +18,29 @@ int main(int argc, char *argv[])
     SignalHandler signalHandler;
     Q_UNUSED(signalHandler)
 
+    if (QCoreApplication::arguments().length() < 2)
+        qFatal("Specify superuser user-id.");
+
+    bool ok;
+    auto headadminId = QCoreApplication::arguments()[1].toLongLong(&ok);
+
+    if (!ok)
+        qFatal("Specify superuser user-id.");
+
     app.setApplicationName("Telegram-Bot");
     app.setApplicationVersion(Bot::version());
 
     qputenv("QT_LOGGING_RULES", "tg.*=false");
-    //qputenv("QT_LOGGING_RULES", "tg.*=false\nbot.*.debug=false");
-    qputenv("DEBUG", "true");
+    qputenv("QT_LOGGING_RULES", "tg.*=false\nbot.*.debug=false");
+    //qputenv("DEBUG", "true");
 
     Database database;
 
-    Bot bot(&database);
-    bot.installModule(MODULE(Board));
-    bot.installModule(MODULE(Help));
-    bot.installModule(MODULE(Subscribe));
-    bot.installModule(MODULE(ConfigModule));
+    Bot bot(&database, headadminId);
+    bot.installModule(new Board);
+    bot.installModule(new Help);
+    bot.installModule(new Subscribe);
+    bot.installModule(new ConfigModule);
     bot.init();
 
     return app.exec();

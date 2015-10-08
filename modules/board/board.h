@@ -7,8 +7,6 @@
 
 class Board : public Module
 {
-    DECLARE_MODULE(Board)
-
 private:
     static const QString ckBoards;
 
@@ -20,7 +18,7 @@ private:
     qint64 getBoard(qint64 gid, const QString &name);
     int getBoardEntryCount(qint64 board_id);
     bool hasPendingMedia(qint64 gid, qint64 uid);
-    void sendNotification(qint64 gid, const QString &boardName, const QString &content, bool hasMedia);
+    void sendNotification(qint64 gid, const QString &boardName, const QString &content, qint64 media);
 
     QStringList cGetBoardsName(qint64 gid);
     void cInvalidateBoardCache(qint64 gid);
@@ -46,6 +44,7 @@ protected:
     void registerModels() override;
 
 public:
+    Board();
     void init() override;
     void onNewMessage(BInputMessage message) override;
 };

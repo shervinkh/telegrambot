@@ -4,8 +4,6 @@
 #include "bot.h"
 #include <QDataStream>
 
-DEFINE_MODULE(Board)
-
 const QString Board::ckBoards = "chat#%1.boards_name";
 const QString Board::kBoardPendingMedia = "chat#%1.pending_media";
 const int Board::MAX_BOARDS_PER_GROUP = 10;
@@ -47,6 +45,8 @@ ModuleHelp Board::help() const
     ModuleHelp result("This module lets you create boards. Boards can be used "
                       "to keep important events in the group or as a place to list "
                       "things.");
+
+    result.addNote("The 'sup' board is automatically being created on first use in each group");
 
     result.addUsage(ModuleHelpUsage("Manage boards",
                                     "!board, !board create name, !board del name, !board rename old_name new_name",
@@ -113,6 +113,8 @@ void Board::onNewMessage(BInputMessage message)
                     pm = true;
             }
         }
+        else if (boardName == "sup")
+            response = fCreateBoard(message.chatId(), "sup", message.userId(), message.date());
 
         if (message.messageMediaType() != MessageMedia::typeMessageMediaEmpty && hasPendingMedia(message.chatId(), message.userId()))
             response = fAddBoardMediaItemPhase2(message.chatId(), message.userId(), message.messageMediaType(),
@@ -240,7 +242,7 @@ QString Board::fAddBoardItem(qint64 gid, qint64 board_id, const QString &boardNa
 
     if (newItem->save())
     {
-        sendNotification(gid, boardName, content, false);
+        sendNotification(gid, boardName, content, 0);
         return tr("Added new entry to the board.");
     }
     else
@@ -297,7 +299,7 @@ QString Board::fAddBoardMediaItemPhase2(qint64 gid, qint64 uid, int mediaType, i
 
     if (newItem->save())
     {
-        sendNotification(gid, boardName, content, true);
+        sendNotification(gid, boardName, content, mediaId);
         return tr("Added new media entry to the board.");
     }
     else
@@ -380,11 +382,11 @@ QString Board::fGetBoardItems(qint64 board_id)
     }
 }
 
-void Board::sendNotification(qint64 gid, const QString &boardName, const QString &content, bool hasMedia)
+void Board::sendNotification(qint64 gid, const QString &boardName, const QString &content, qint64 media)
 {
     auto tag = QString("board.%1").arg(boardName);
 
-    auto mediaString = hasMedia ? tr(" (This entry has media attachment)") : "";
+    auto mediaString = media ? tr(" (This entry has media attachment)") : "";
     auto text = tr("New entry for board %1:\n%2%3").arg(boardName).arg(content).arg(mediaString);
 
     auto subscribeModule = interface()->getModule("subscribe");
@@ -397,5 +399,15 @@ void Board::sendNotification(qint64 gid, const QString &boardName, const QString
         args.append(text);
 
         subscribeModule->customCommand("sendNotification", args);
+
+        if (media)
+        {
+            QList<QVariant> args;
+            args.append(gid);
+            args.append(tag);
+            args.append(media);
+
+            subscribeModule->customCommand("sendForward", args);
+        }
     }
 }

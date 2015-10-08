@@ -32,6 +32,7 @@ public:
     const QList<Module *> &installedModules() {return mBot->mModules;}
     void sendMessage(qint64 id, bool chat, const QString &message, qint64 replyTo);
     void sendBroadcast(const QList<qint64> &users, const QString &message);
+    void forwardBroadcast(const QList<qint64> &users, qint64 msgId);
     void forwardMessage(qint64 id, bool chat, qint64 msgId);
 
     Model *newModel(const QString &section, const QString &name, qint64 version,

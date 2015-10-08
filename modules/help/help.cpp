@@ -1,8 +1,6 @@
 #include "help.h"
 #include "botinterface.h"
 
-DEFINE_MODULE(Help)
-
 Help::Help()
     : Module("help", 0, QDate(2015, 9, 17))
 {

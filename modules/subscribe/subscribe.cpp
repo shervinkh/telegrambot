@@ -2,8 +2,6 @@
 #include "model.h"
 #include "botinterface.h"
 
-DEFINE_MODULE(Subscribe)
-
 Subscribe::Subscribe()
     : Module("subscribe", 0, QDate(2015, 9, 18))
 {
@@ -76,13 +74,39 @@ QString Subscribe::fUnsubscribe(qint64 gid, qint64 uid)
 
 void Subscribe::customCommand(const QString &command, const QList<QVariant> &args)
 {
+    auto assertWhere = QString("Custom command \"%1\" from module \"%2\"")
+            .arg(command).arg(name()).toLocal8Bit();
+    auto assertWhatInvalidArgs = "Invalid number of arguments!";
+    auto assertWhatInvalidCommand = "Invalid command";
+
     if (command == "sendNotification")
     {
+        Q_ASSERT_X(args.size() == 3, assertWhere.data(), assertWhatInvalidArgs);
         auto gid = args[0].toLongLong();
         auto tag = args[1].toString();
         auto text = args[2].toString();
         sendNotification(gid, tag, text);
     }
+    else if (command == "sendForward")
+    {
+        Q_ASSERT_X(args.size() == 3, assertWhere.data(), assertWhatInvalidArgs);
+        auto gid = args[0].toLongLong();
+        auto tag = args[1].toString();
+        auto msgId = args[2].toLongLong();
+        sendForward(gid, tag, msgId);
+    }
+    else
+        Q_ASSERT_X(false, assertWhere.data(), assertWhatInvalidCommand);
+}
+
+QList<qint64> Subscribe::groupSubscribedUsers(qint64 gid)
+{
+    auto subscriptions = model("subscription")->objectSet().filter("gid=?", gid).select();
+    QList<qint64> users;
+    foreach (auto subscription, subscriptions)
+        users.append(subscription["uid"].toLongLong());
+
+    return users;
 }
 
 void Subscribe::sendNotification(qint64 gid, const QString &tag, const QString &text)
@@ -90,10 +114,11 @@ void Subscribe::sendNotification(qint64 gid, const QString &tag, const QString &
     auto groupMetadata = interface()->getGroupMetadata(gid);
     auto broadcastString = tr("Notification from %1 (%2):\n%3").arg(groupMetadata.title()).arg(tag).arg(text);
 
-    auto subscriptions = model("subscription")->objectSet().filter("gid=?", gid).select();
-    QList<qint64> users;
-    foreach (auto subscription, subscriptions)
-        users.append(subscription["uid"].toLongLong());
+    interface()->sendBroadcast(groupSubscribedUsers(gid), broadcastString);
+}
 
-    interface()->sendBroadcast(users, broadcastString);
+void Subscribe::sendForward(qint64 gid, const QString &tag, qint64 msgId)
+{
+    Q_UNUSED(tag)
+    interface()->forwardBroadcast(groupSubscribedUsers(gid), msgId);
 }

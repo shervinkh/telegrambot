@@ -67,6 +67,17 @@ QString Module::helpString() const
     if (!moduleHelp.description().isEmpty())
         result += "\n" + moduleHelp.description();
 
+    auto firstNote = true;
+    foreach (auto note, moduleHelp.notes())
+    {
+        if (firstNote)
+            result += "\n";
+
+        result += tr("\nNote: %1").arg(note);
+
+        firstNote = false;
+    }
+
     foreach (auto usage, moduleHelp.usages())
     {
         result += tr("\n\nUsage: %1").arg(usage.usage());

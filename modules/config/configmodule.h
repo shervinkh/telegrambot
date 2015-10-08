@@ -6,21 +6,24 @@
 
 class ConfigModule : public Module
 {
-    DECLARE_MODULE(ConfigModule)
 private:
     QPair<QString, QVariant> getNameValue(const QString &str);
     QString changeOrReset(const QVariant &value);
 
     QString fViewConfig(qint64 gid, BotConfig *botConfig);
-    QString fSetConfig(qint64 gid, BotConfig *botConfig, const QString &field, const QVariant &value);
-    QString fSetDefaultConfig(BotConfig *botConfig, const QString &field, const QVariant &value);
-    QString fSetGlobalConfig(BotConfig *botConfig, const QString &field, const QVariant &value);
+    QString fSetConfig(qint64 gid, BotConfig *botConfig, const QString &field,
+                       const QVariant &value, bool authorized);
+    QString fSetDefaultConfig(BotConfig *botConfig, const QString &field,
+                              const QVariant &value, bool authorized);
+    QString fSetGlobalConfig(BotConfig *botConfig, const QString &field,
+                             const QVariant &value, bool authorized);
 
 protected:
     void registerConfigs() {}
     ModuleHelp help() const;
 
 public:
+    ConfigModule();
     void init();
     void onNewMessage(BInputMessage message);
 };

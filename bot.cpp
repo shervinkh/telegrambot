@@ -16,8 +16,8 @@ const int Bot::METADATA_UPDATE_SLICE = 100;
 
 Q_LOGGING_CATEGORY(BOT_CORE, "bot.core")
 
-Bot::Bot(Database *database, QObject *parent)
-    : QObject(parent), input(stdin), output(stdout), mDatabase(database)
+Bot::Bot(Database *database, qint64 superuserId, QObject *parent)
+    : QObject(parent), input(stdin), output(stdout), mSuperuserId(superuserId), mDatabase(database)
 {
     mCurrentOperation = None;
     mLoggedIn = false;
@@ -74,6 +74,16 @@ void Bot::updateMetadata()
     mMetaRedis->del("groups");
     mMetaRedis->del("users");
     mMetadataStart = 0;
+    updateNextMetadata();
+}
+
+void Bot::updateNextMetadata()
+{
+    QTimer::singleShot(250, this, &Bot::updateNextMetadataImp);
+}
+
+void Bot::updateNextMetadataImp()
+{
     mTelegram->messagesGetDialogs(mMetadataStart, 0, METADATA_UPDATE_SLICE);
 }
 
@@ -113,6 +123,17 @@ void Bot::updateNextGroupLinksImp()
     else
         qCInfo(BOT_CORE) << "Fininshed getting group-user links!";
 }
+
+BInputMessage::AccessLevel Bot::userAccessLevel(qint64 gid, qint64 uid)
+{
+    if (uid == mSuperuserId)
+        return BInputMessage::Superuser;
+    else if (uid == mBotInterface->getGroupMetadata(gid).adminId())
+        return BInputMessage::Admin;
+
+    return BInputMessage::User;
+}
+
 //End Metadata
 
 //Start DataGetter
@@ -263,7 +284,7 @@ void Bot::onMessagesGetDialogsAnswer(qint64 id, qint32 sliceCount, const QList<D
     if (mMetadataStart + count < sliceCount)
     {
         mMetadataStart += count;
-        mTelegram->messagesGetDialogs(mMetadataStart, 0, METADATA_UPDATE_SLICE);
+        updateNextMetadata();
     }
     else
     {
@@ -435,10 +456,12 @@ void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats,
 
         if (update.classType() == Update::typeUpdateNewMessage)
         {
-            Message message = update.message();
-            BInputMessage newMessage(message.id(), message.fromId(), chats.isEmpty() ? 0 : chats.first().id(), message.date(),
+            auto message = update.message();
+            auto gid = chats.isEmpty() ? 0 : chats.first().id();
+            auto accessLevel = userAccessLevel(gid, message.fromId());
+            BInputMessage newMessage(message.id(), message.fromId(), gid, message.date(),
                                      message.message(), message.fwdFromId(), message.fwdDate(), message.replyToMsgId(),
-                                     message.media().classType());
+                                     message.media().classType(), accessLevel);
             eventNewMessage(newMessage);
         }
         else if (update.classType() == Update::typeUpdateChatParticipants)
@@ -485,7 +508,8 @@ void Bot::onUpdateShortMessage(qint32 id, qint32 userid, const QString &message,
     Q_UNUSED(unread)
     Q_UNUSED(out)
 
-    BInputMessage newMessage(id, userid, 0, date, message, fwd_from_id, fwd_date, reply_to_msg_id, MessageMedia::typeMessageMediaEmpty);
+    BInputMessage newMessage(id, userid, 0, date, message, fwd_from_id, fwd_date, reply_to_msg_id,
+                             MessageMedia::typeMessageMediaEmpty, userAccessLevel(0, userid));
     eventNewMessage(newMessage);
 }
 
@@ -498,7 +522,8 @@ void Bot::onUpdateShortChatMessage(qint32 id, qint32 fromId, qint32 chatId, cons
     Q_UNUSED(unread)
     Q_UNUSED(out)
 
-    BInputMessage newMessage(id, fromId, chatId, date, message, fwd_from_id, fwd_date, reply_to_msg_id, MessageMedia::typeMessageMediaEmpty);
+    BInputMessage newMessage(id, fromId, chatId, date, message, fwd_from_id, fwd_date, reply_to_msg_id,
+                             MessageMedia::typeMessageMediaEmpty, userAccessLevel(chatId, fromId));
     eventNewMessage(newMessage);
 }
 

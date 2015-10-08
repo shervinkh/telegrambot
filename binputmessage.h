@@ -6,6 +6,9 @@
 
 class BInputMessage
 {
+public:
+    enum AccessLevel { User, Admin, Superuser };
+
 private:
     qint64 mId;
     qint64 mUserId;
@@ -18,11 +21,14 @@ private:
     qint64 mReplyFromUser;
     QString mReplyFromMessage;
     int mMessageMediaType;
+    AccessLevel mAccessLevel;
 
 public:
+
     BInputMessage();
     BInputMessage(qint64 id, qint64 userId, qint64 chatId, qint64 date, const QString &message,
-                  qint64 forwardedFrom, qint64 forwardedDate, qint64 replyFromId, int messageMediaType);
+                  qint64 forwardedFrom, qint64 forwardedDate, qint64 replyFromId, int messageMediaType,
+                  AccessLevel accessLevel);
 
     QVariantList getArgumentsArray() const;
     QString command() const;
@@ -41,6 +47,8 @@ public:
     qint64 replyFromUser() const { return mReplyFromUser; }
     QString replyFromMessage() const { return mReplyFromMessage; }
     int messageMediaType() const { return mMessageMediaType; }
+    bool isAdmin() const { return mAccessLevel == Admin || mAccessLevel == Superuser; }
+    bool isSuperuser() const { return mAccessLevel == Superuser; }
 };
 
 #endif // BMESSAGE_H

@@ -86,6 +86,11 @@ void BotInterface::sendBroadcast(const QList<qint64> &users, const QString &mess
     mBot->sendBroadcast(users, message);
 }
 
+void BotInterface::forwardBroadcast(const QList<qint64> &users, qint64 msgId)
+{
+    mBot->continueBroadcast(msgId, users);
+}
+
 void BotInterface::forwardMessage(qint64 id, bool chat, qint64 msgId)
 {
     mBot->mTelegram->messagesForwardMessage(getPeer(id, chat), msgId);

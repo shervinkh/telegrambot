@@ -1,6 +1,7 @@
 #include "groupmetadata.h"
 
 GroupMetadata::GroupMetadata()
+    : mId(0), mAdminId(0)
 {
 
 }

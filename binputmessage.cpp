@@ -14,7 +14,7 @@ BInputMessage::BInputMessage()
 
 BInputMessage::BInputMessage(qint64 id, qint64 userId, qint64 chatId, qint64 date,
                              const QString &message, qint64 forwardedFrom, qint64 forwardedDate,
-                             qint64 replyFromId, int messageMediaType)
+                             qint64 replyFromId, int messageMediaType, AccessLevel accessLevel)
 {
     mId = id;
     mUserId = userId;
@@ -26,6 +26,7 @@ BInputMessage::BInputMessage(qint64 id, qint64 userId, qint64 chatId, qint64 dat
     mReplyFromId = replyFromId;
     mReplyFromUser = 0;
     mMessageMediaType = messageMediaType;
+    mAccessLevel = accessLevel;
 }
 
 void BInputMessage::setReplyData(qint64 replyUser, const QString &replyMessage)

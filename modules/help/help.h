@@ -5,7 +5,6 @@
 
 class Help : public Module
 {
-    DECLARE_MODULE(Help)
 private:
     QString helpString();
 
@@ -13,6 +12,7 @@ protected:
     ModuleHelp help() const;
 
 public:
+    Help();
     void init();
     void onNewMessage(BInputMessage message);
 };

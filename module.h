@@ -13,20 +13,6 @@
 #include <QSqlQuery>
 #include <QLoggingCategory>
 
-#define DECLARE_MODULE(name) \
-public: \
-    static name *instance() { \
-        if (!mInstance) \
-            mInstance = new name(); \
-        return mInstance; \
-    } \
-private: \
-    name(); \
-    static name *mInstance;
-
-#define DEFINE_MODULE(name) \
-    name *name::mInstance = Q_NULLPTR;
-
 #define MODULE(name) name::instance()
 
 #define logDebug() qCDebug(mLoggingCategory)

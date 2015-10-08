@@ -16,7 +16,7 @@ void ModelObject::assertFieldExists(const QString &fieldName) const
 
     auto assertWhat = "No such field exists!";
 
-    Q_ASSERT_X(mData.contains(fieldName), assertWhere, assertWhat);
+    Q_ASSERT_X(mData.contains(fieldName), assertWhere.data(), assertWhat);
 }
 
 const QVariant &ModelObject::operator[](const QString &fieldName) const
