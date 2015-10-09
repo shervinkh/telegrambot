@@ -79,7 +79,7 @@ void Bot::updateMetadata()
 
 void Bot::updateNextMetadata()
 {
-    QTimer::singleShot(1000, this, &Bot::updateNextMetadataImp);
+    QTimer::singleShot(1300, this, &Bot::updateNextMetadataImp);
 }
 
 void Bot::updateNextMetadataImp()
