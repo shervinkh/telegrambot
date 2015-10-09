@@ -63,12 +63,12 @@ void ConfigModule::onNewMessage(BInputMessage message)
                     auto confVals = getNameValue(message.getStringFromArgument(3));
                     response = fSetGlobalConfig(conf, confVals.first, confVals.second, message.isSuperuser());
                 }
-                else if (args.size() > 2)
+                else if (args.size() > 2 && message.chatId())
                 {
                     auto confVals = getNameValue(message.getStringFromArgument(2));
                     response = fSetConfig(message.chatId(), conf, confVals.first, confVals.second, message.isAdmin());
                 }
-                else
+                else if (message.chatId())
                     response = fViewConfig(message.chatId(), conf);
             }
         }
