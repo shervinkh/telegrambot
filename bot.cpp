@@ -307,11 +307,12 @@ void Bot::onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const
     updateNextGroupLinks();
 }
 
-void Bot::onMessagesSendMessageAnswer(qint64 id, qint32 msgId, qint32 date, qint32 pts,
+void Bot::onMessagesSendMessageAnswer(qint64 id, qint32 msgId, qint32 date, const MessageMedia &media, qint32 pts,
                                       qint32 pts_count, qint32 seq, const QList<ContactsLink> &links)
 {
     Q_UNUSED(date)
     Q_UNUSED(pts)
+    Q_UNUSED(media)
     Q_UNUSED(pts_count)
     Q_UNUSED(seq)
     Q_UNUSED(links)
@@ -450,7 +451,7 @@ void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats,
 
         qCDebug(BOT_CORE) << "--Update: class=" << updateCode(update.classType()) << ", chatId=" << (chats.isEmpty() ? 0 : chats.first().id()) <<
                   ", userId=" << update.userId() << ", message=" << update.message().message() << ' '<<
-                  ", type=" << type << ", len=" << update.message().media().bytes().length() << ", id=" << update.message().id()
+                  ", type=" << type << ", id=" << update.message().id()
                           << ", Action= " << decodeMessageAction(update.message().action()) <<
                              ", participants: " << update.participants().participants().size();
 
@@ -535,8 +536,6 @@ void Bot::onUpdatesTooLong()
 QString Bot::updateCode(int code)
 {
     switch (code){
-    case Update::typeUpdateActivation:
-        return "Activation";
     case Update::typeUpdateChatParticipantAdd:
         return "Chat Participant Add";
     case Update::typeUpdateChatParticipantDelete:
@@ -559,8 +558,6 @@ QString Bot::updateCode(int code)
         return "Encrypted Message Read";
     case Update::typeUpdateEncryption:
         return "Encryption";
-    case Update::typeUpdateInvalid:
-        return "Invalid";
     case Update::typeUpdateMessageID:
         return "Message ID";
     case Update::typeUpdateNewAuthorization:
@@ -579,10 +576,6 @@ QString Bot::updateCode(int code)
         return "Read History Inbox";
     case Update::typeUpdateReadHistoryOutbox:
         return "Read History Outbox";
-    case Update::typeUpdateReadMessages:
-        return "Read Messages";
-    case Update::typeUpdateRestoreMessages:
-        return "Restore Messages";
     case Update::typeUpdateServiceNotification:
         return "Service Notification";
     case Update::typeUpdateUserBlocked:

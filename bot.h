@@ -10,6 +10,7 @@
 #include <QMap>
 #include <QLoggingCategory>
 #include <QSqlQuery>
+#include <QTimer>
 
 class Database;
 class CoreDataStore;
@@ -115,8 +116,8 @@ public slots:
     void onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const QList<Chat> &chats, const QList<User> &users);
     void onMessagesGetDialogsAnswer(qint64 id, qint32 sliceCount, const QList<Dialog> &dialogs,
                                     const QList<Message> &messages, const QList<Chat> &chats, const QList<User> &users);
-    void onMessagesSendMessageAnswer(qint64 id, qint32 msgId, qint32 date, qint32 pts, qint32 pts_count, qint32 seq,
-                                     const QList<ContactsLink> &links);
+    void onMessagesSendMessageAnswer(qint64 id, qint32 msgId, qint32 date, const MessageMedia &media, qint32 pts,
+                                     qint32 pts_count, qint32 seq, const QList<ContactsLink> &links);
 
     //Stated Messages
     QString decodeMessageAction(MessageAction state);
