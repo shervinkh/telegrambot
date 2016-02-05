@@ -151,6 +151,16 @@ QVariant Redis::sadd(const QString &key, const QList<QVariant> &values)
     return variadicCommand("SADD", key, values);
 }
 
+QVariant Redis::sismember(const QString &key, const QVariant &value)
+{
+    return command("SISMEMBER", key, value);
+}
+
+QVariant Redis::srem(const QString &key, const QVariant &value)
+{
+    return command("SREM", key, value);
+}
+
 QVariant Redis::scard(const QString &key)
 {
     return command("SCARD", key);
@@ -161,22 +171,22 @@ QVariant Redis::smembers(const QString &key)
     return command("SMEMBERS", key);
 }
 
-QVariant Redis::hset(const QString &key, const QString &field, const QVariant &value)
+QVariant Redis::hset(const QString &key, const QVariant &field, const QVariant &value)
 {
     return command("HSET", key, field, value);
 }
 
-QVariant Redis::hexists(const QString &key, const QString &field)
+QVariant Redis::hexists(const QString &key, const QVariant &field)
 {
     return command("HEXISTS", key, field);
 }
 
-QVariant Redis::hget(const QString &key, const QString &field)
+QVariant Redis::hget(const QString &key, const QVariant &field)
 {
     return command("HGET", key, field);
 }
 
-QVariant Redis::hdel(const QString &key, const QString &field)
+QVariant Redis::hdel(const QString &key, const QVariant &field)
 {
     return command("HDEL", key, field);
 }

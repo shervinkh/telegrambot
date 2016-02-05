@@ -55,9 +55,13 @@ private:
     BInputMessage::AccessLevel userAccessLevel(qint64 gid, qint64 uid);
 
     //DataGetter
-    void getUserData(const User &user);
-    void getChatData(const Chat &chat);
-    void getChatParticipantsData(const ChatParticipants &chatParticipants);
+    void eatUserData(const User &user);
+    void eatUserDataChange(qint64 id, const QString &firstName,
+                           const QString &lastName, const QString &username);
+    void eatChatData(const Chat &chat);
+    void eatChatParticipantsData(const ChatParticipants &chatParticipants);
+    void eatDelUser(qint64 gid, qint64 uid);
+    void eatChangeTitle(qint64 gid, const QString &title);
 
     //Reply From System
     typedef QList<BInputMessage> MessageList;
@@ -66,6 +70,10 @@ private:
 
     //Events
     void eventNewMessage(BInputMessage message);
+    void eventCreateChat(qint64 gid, qint64 creator);
+    void eventAddUser(qint64 gid, qint64 user, qint64 inviter);
+    void eventDelUser(qint64 gid, qint64 user, qint64 remover);
+    void eventChangeTitle(qint64 gid, const QString &title, qint64 by);
 
     //Modules
     QList<Module *> mModules;

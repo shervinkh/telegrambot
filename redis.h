@@ -51,14 +51,16 @@ public:
     //Set
     QVariant sadd(const QString &key, const QVariant &value);
     QVariant sadd(const QString &key, const QList<QVariant> &values);
+    QVariant sismember(const QString &key, const QVariant &value);
+    QVariant srem(const QString &key, const QVariant &value);
     QVariant scard(const QString &key);
     QVariant smembers(const QString &key);
 
     //Hash
-    QVariant hset(const QString &key, const QString &field, const QVariant &value);
-    QVariant hexists(const QString &key, const QString &field);
-    QVariant hget(const QString &key, const QString &field);
-    QVariant hdel(const QString &key, const QString &field);
+    QVariant hset(const QString &key, const QVariant &field, const QVariant &value);
+    QVariant hexists(const QString &key, const QVariant &field);
+    QVariant hget(const QString &key, const QVariant &field);
+    QVariant hdel(const QString &key, const QVariant &field);
 
     //Cache
     QVariant getCachedValue(const QString &key, std::function<QVariant()> calculateFunction, int ttl = -1);

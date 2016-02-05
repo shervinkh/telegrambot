@@ -79,7 +79,7 @@ void Bot::updateMetadata()
 
 void Bot::updateNextMetadata()
 {
-    QTimer::singleShot(1300, this, &Bot::updateNextMetadataImp);
+    QTimer::singleShot(1500, this, &Bot::updateNextMetadataImp);
 }
 
 void Bot::updateNextMetadataImp()
@@ -117,7 +117,6 @@ void Bot::updateNextGroupLinksImp()
     if (!mLinkdataList.isEmpty())
     {
         auto nextGid = mLinkdataList.takeFirst();
-        mMetaRedis->del(QString("chat#%1.users").arg(nextGid));
         mTelegram->messagesGetFullChat(nextGid);
     }
     else
@@ -137,12 +136,13 @@ BInputMessage::AccessLevel Bot::userAccessLevel(qint64 gid, qint64 uid)
 //End Metadata
 
 //Start DataGetter
-void Bot::getUserData(const User &user)
+void Bot::eatUserData(const User &user)
 {
     if (user.classType() != User::typeUserDeleted && user.classType() != User::typeUserEmpty)
     {
+        qCDebug(BOT_CORE) << "Eating user: " << user.id();
         mMetaRedis->sadd("users", user.id());
-        QString dataKey = QString("user#%1").arg(user.id());
+        auto dataKey = QString("user#%1").arg(user.id());
         mMetaRedis->hset(dataKey, "first_name", user.firstName());
         mMetaRedis->hset(dataKey, "last_name", user.lastName());
         mMetaRedis->hset(dataKey, "username", user.username());
@@ -150,26 +150,42 @@ void Bot::getUserData(const User &user)
     }
 }
 
-void Bot::getChatData(const Chat &chat)
+void Bot::eatUserDataChange(qint64 id, const QString &firstName,
+                            const QString &lastName, const QString &username)
+{
+    auto dataKey = QString("user#%1").arg(id);
+    if (mMetaRedis->exists(dataKey).toBool())
+    {
+        qCDebug(BOT_CORE) << "Eating user change: " << id;
+        mMetaRedis->hset(dataKey, "first_name", firstName);
+        mMetaRedis->hset(dataKey, "last_name", lastName);
+        mMetaRedis->hset(dataKey, "username", username);
+    }
+}
+
+void Bot::eatChatData(const Chat &chat)
 {
     if (chat.classType() != Chat::typeChatForbidden && chat.classType() != Chat::typeChatEmpty && !chat.left())
     {
+        qCDebug(BOT_CORE) << "Eating chat meta: " << chat.id();
         mMetaRedis->sadd("groups", chat.id());
-        QString dataKey = QString("chat#%1").arg(chat.id());
+        auto dataKey = QString("chat#%1").arg(chat.id());
         mMetaRedis->hset(dataKey, "title", chat.title());
     }
 }
 
-void Bot::getChatParticipantsData(const ChatParticipants &chatParticipants)
+void Bot::eatChatParticipantsData(const ChatParticipants &chatParticipants)
 {
     if (chatParticipants.classType() != ChatParticipants::typeChatParticipantsForbidden)
     {
-        qint64 chatId = chatParticipants.chatId();
+        auto chatId = chatParticipants.chatId();
+        qCDebug(BOT_CORE) << "Eating chat full: " << chatId;
 
-        QString chatDataKey = QString("chat#%1").arg(chatId);
+        auto chatDataKey = QString("chat#%1").arg(chatId);
         mMetaRedis->hset(chatDataKey, "admin", chatParticipants.adminId());
 
-        QString chatMembersDataKey = QString("chat#%1.users").arg(chatId);
+        auto chatMembersDataKey = QString("chat#%1.users").arg(chatId);
+        mMetaRedis->del(chatMembersDataKey);
         foreach (ChatParticipant chatParticipant, chatParticipants.participants())
         {
             mMetaRedis->hset(chatMembersDataKey, QString::number(chatParticipant.userId()), chatParticipant.inviterId());
@@ -177,6 +193,22 @@ void Bot::getChatParticipantsData(const ChatParticipants &chatParticipants)
         }
     }
 }
+
+void Bot::eatDelUser(qint64 gid, qint64 uid)
+{
+    qCDebug(BOT_CORE) << "Eating user del: " << uid << "from" << gid;
+    mMetaRedis->srem(QString("user#%1.groups").arg(uid), gid);
+    mMetaRedis->hdel(QString("chat#%1.users").arg(gid), uid);
+}
+
+void Bot::eatChangeTitle(qint64 gid, const QString &title)
+{
+    qCDebug(BOT_CORE) << "Eating change title: " << gid;
+    auto chatDataKey = QString("chat#%1").arg(gid);
+    if (mMetaRedis->exists(chatDataKey).toBool())
+        mMetaRedis->hset(chatDataKey, "title", title);
+}
+
 //End DataGetter
 
 //Start Auth
@@ -276,10 +308,10 @@ void Bot::onMessagesGetDialogsAnswer(qint64 id, qint32 sliceCount, const QList<D
     int count = dialogs.size();
 
     foreach (Chat c, chats)
-        getChatData(c);
+        eatChatData(c);
 
     foreach (User u, users)
-        getUserData(u);
+        eatUserData(u);
 
     if (mMetadataStart + count < sliceCount)
     {
@@ -298,11 +330,10 @@ void Bot::onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const
 {
     Q_UNUSED(id);
     Q_UNUSED(chats);
-
     foreach (auto user, users)
-        getUserData(user);
+        eatUserData(user);
 
-    getChatParticipantsData(chatFull.participants());
+    eatChatParticipantsData(chatFull.participants());
 
     updateNextGroupLinks();
 }
@@ -413,10 +444,10 @@ void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats,
     qCDebug(BOT_CORE) << "Updates: " << endl << flush;
 
     foreach (auto user, users)
-        getUserData(user);
+        eatUserData(user);
 
     foreach (auto chat, chats)
-        getChatData(chat);
+        eatChatData(chat);
 
     foreach (Update update, updates)
     {
@@ -458,15 +489,32 @@ void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats,
         if (update.classType() == Update::typeUpdateNewMessage)
         {
             auto message = update.message();
-            auto gid = chats.isEmpty() ? 0 : chats.first().id();
-            auto accessLevel = userAccessLevel(gid, message.fromId());
-            BInputMessage newMessage(message.id(), message.fromId(), gid, message.date(),
-                                     message.message(), message.fwdFromId(), message.fwdDate(), message.replyToMsgId(),
-                                     message.media().classType(), accessLevel);
-            eventNewMessage(newMessage);
+            auto chatId = chats.isEmpty() ? 0 : chats.first().id();
+            auto doer = message.fromId();
+            auto doee = message.action().userId();
+
+            if (message.action().classType() == MessageAction::typeMessageActionChatCreate)
+                eventCreateChat(chatId, doer);
+            else if (message.action().classType() == MessageAction::typeMessageActionChatAddUser)
+                eventAddUser(chatId, doee, doer);
+            else if (message.action().classType() == MessageAction::typeMessageActionChatJoinedByLink)
+                eventAddUser(chatId, doer, doer);
+            else if (message.action().classType() == MessageAction::typeMessageActionChatDeleteUser)
+                eventDelUser(chatId, doee, doer);
+            else if (message.action().classType() == MessageAction::typeMessageActionChatEditTitle)
+                eventChangeTitle(chatId, message.action().title(), doer);
+            else
+            {
+                auto gid = chats.isEmpty() ? 0 : chats.first().id();
+                auto accessLevel = userAccessLevel(gid, message.fromId());
+                BInputMessage newMessage(message.id(), message.fromId(), gid, message.date(),
+                                         message.message(), message.fwdFromId(), message.fwdDate(), message.replyToMsgId(),
+                                         message.media().classType(), accessLevel);
+                eventNewMessage(newMessage);
+            }
         }
         else if (update.classType() == Update::typeUpdateChatParticipants)
-            getChatParticipantsData(update.participants());
+            eatChatParticipantsData(update.participants());
     }
 
     foreach (Chat chat, chats)
@@ -498,6 +546,8 @@ void Bot::onUpdateShort(Update update, qint32 date)
                   ((update.status().classType() == UserStatus::typeUserStatusOnline) ? "Online" :
                   ((update.status().classType() == UserStatus::typeUserStatusOffline) ? "Offline" : "Unknown"))
                << ", wasOnline=" << update.status().wasOnline();
+    else if (update.classType() == Update::typeUpdateUserName)
+        eatUserDataChange(update.userId(), update.firstName(), update.lastName(), update.username());
 }
 
 void Bot::onUpdateShortMessage(qint32 id, qint32 userid, const QString &message, qint32 pts,
@@ -634,6 +684,28 @@ void Bot::eventNewMessage(BInputMessage message)
 
     foreach (Module *module, mModules)
         module->onNewMessage(message);
+}
+
+void Bot::eventCreateChat(qint64 gid, qint64 creator)
+{
+    qCDebug(BOT_CORE) << "Created Chat: " << gid << " By " << creator;
+}
+
+void Bot::eventAddUser(qint64 gid, qint64 user, qint64 inviter)
+{
+    qCDebug(BOT_CORE) << "Added user: " << user << " By " << inviter << " In " << gid;
+}
+
+void Bot::eventDelUser(qint64 gid, qint64 user, qint64 remover)
+{
+    qCDebug(BOT_CORE) << "Removed user: " << user << " By " << remover << " In " << gid;
+    eatDelUser(gid, user);
+}
+
+void Bot::eventChangeTitle(qint64 gid, const QString &title, qint64 by)
+{
+    qCDebug(BOT_CORE) << "Change title: " << gid << " By " << by << " to " << title;
+    eatChangeTitle(gid, title);
 }
 
 //End Events
