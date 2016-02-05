@@ -2,6 +2,7 @@
 #include "database.h"
 #include "core/core_data_store/coredatastore.h"
 #include "core/core_model/coremodel.h"
+#include "core/core_module/coremodule.h"
 #include "core/core_config/coreconfig.h"
 #include "redis.h"
 #include "module.h"
@@ -21,13 +22,17 @@ Bot::Bot(Database *database, qint64 superuserId, QObject *parent)
 {
     mCurrentOperation = None;
     mLoggedIn = false;
+
+    mCoreDataStore = new CoreDataStore(this);
+    mCoreRedis = mCoreDataStore->redis(CoreDataStore::CoreRedis);
+    mMetaRedis = mCoreDataStore->redis(CoreDataStore::MetaRedis);
+
     mBotInterface = new BotInterface(this, this);
+
     mCoreModel = new CoreModel(mBotInterface, this);
     mCoreModel->init();
     mCoreConfig = new CoreConfig(mBotInterface, this);
-    mCoreDataStore = new CoreDataStore(mBotInterface, this);
-    mCoreRedis = mCoreDataStore->redis(CoreDataStore::CoreRedis);
-    mMetaRedis = mCoreDataStore->redis(CoreDataStore::MetaRedis);
+    mCoreModule = new CoreModule(mBotInterface, this);
 
     QString homeDir = QStandardPaths::standardLocations(QStandardPaths::HomeLocation).last();
 
@@ -127,7 +132,7 @@ BInputMessage::AccessLevel Bot::userAccessLevel(qint64 gid, qint64 uid)
 {
     if (uid == mSuperuserId)
         return BInputMessage::Superuser;
-    else if (uid == mBotInterface->getGroupMetadata(gid).adminId())
+    else if (uid == mBotInterface->metadata()->groupMetadata(gid).adminId())
         return BInputMessage::Admin;
 
     return BInputMessage::User;
@@ -665,6 +670,31 @@ void Bot::resolveReplyFrom(BInputMessage message)
     }
 }
 
+void Bot::setPrivateGroup(BInputMessage &message)
+{
+    if (!message.isPrivate())
+        return;
+
+    auto groupModule = mBotInterface->getModule("group");
+
+    if (groupModule)
+    {
+        QList<QVariant> args;
+        args.append(message.userId());
+
+        auto gid = groupModule->customCommand("getUserGroup", args).toLongLong();
+        if (gid == -1)
+        {
+            auto note = tr("Note: In order to use group-dependent function in private, "
+                           "You should set group via !group or /group command! (e.g. "
+                           "!group set 12345678)");
+            mBotInterface->sendMessage(message.userId(), false, note, message.id());
+        }
+        else
+            message.setGroupChat(gid);
+    }
+}
+
 //End Utilities
 
 //Start Events
@@ -676,6 +706,8 @@ void Bot::eventNewMessage(BInputMessage message)
         resolveReplyFrom(message);
         return;
     }
+
+    setPrivateGroup(message);
 
     qCDebug(BOT_CORE) << "NewMessage Event: id= " << message.id() << ", user=" << message.userId() << ", chat=" << message.chatId() <<
               ", message=" << message.message() << ", date=" << message.date().toString() << ", fwdFrom=" << message.forwardedFrom() << ", fwdDate=" <<
@@ -715,7 +747,7 @@ void Bot::eventChangeTitle(qint64 gid, const QString &title, qint64 by)
 void Bot::installModule(Module *module)
 {
     module->setBotInterface(mBotInterface);
-    mCoreDataStore->updateModuleInfo(module);
+    mCoreModule->updateModuleInfo(module);
     mModules.append(module);
 }
 

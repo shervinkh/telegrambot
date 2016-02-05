@@ -15,6 +15,7 @@
 class Database;
 class CoreDataStore;
 class CoreModel;
+class CoreModule;
 class CoreConfig;
 class Module;
 class BotInterface;
@@ -67,6 +68,7 @@ private:
     typedef QList<BInputMessage> MessageList;
     QMap<qint64, MessageList> pendingForReplyFromQueue;
     void resolveReplyFrom(BInputMessage message);
+    void setPrivateGroup(BInputMessage &message);
 
     //Events
     void eventNewMessage(BInputMessage message);
@@ -84,6 +86,7 @@ private:
     //Core
     CoreDataStore *mCoreDataStore;
     CoreModel *mCoreModel;
+    CoreModule *mCoreModule;
     CoreConfig *mCoreConfig;
 
     //Redis

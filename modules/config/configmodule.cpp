@@ -75,7 +75,8 @@ void ConfigModule::onNewMessage(BInputMessage message)
 
     }
 
-    interface()->sendMessage(message.chatId(), true, response, message.id());
+    auto pm = message.isPrivate();
+    interface()->sendMessage(pm ? message.userId() : message.chatId(), !pm, response, message.id());
 }
 
 QPair<QString, QVariant> ConfigModule::getNameValue(const QString &str)

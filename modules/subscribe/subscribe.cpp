@@ -47,7 +47,8 @@ void Subscribe::onNewMessage(BInputMessage message)
         else if (message.command() == "unsubscribe")
             response = fUnsubscribe(message.chatId(), message.userId());
 
-        interface()->sendMessage(message.chatId(), true, response, message.id());
+        auto pm = message.isPrivate();
+        interface()->sendMessage(pm ? message.userId() : message.chatId(), !pm, response, message.id());
     }
 }
 
@@ -72,7 +73,7 @@ QString Subscribe::fUnsubscribe(qint64 gid, qint64 uid)
         return tr("Falied to unsubscribe! Maybe you have not subscribed.");
 }
 
-void Subscribe::customCommand(const QString &command, const QList<QVariant> &args)
+QVariant Subscribe::customCommand(const QString &command, const QList<QVariant> &args)
 {
     auto assertWhere = QString("Custom command \"%1\" from module \"%2\"")
             .arg(command).arg(name()).toLocal8Bit();
@@ -97,6 +98,8 @@ void Subscribe::customCommand(const QString &command, const QList<QVariant> &arg
     }
     else
         Q_ASSERT_X(false, assertWhere.data(), assertWhatInvalidCommand);
+
+    return QVariant();
 }
 
 QList<qint64> Subscribe::groupSubscribedUsers(qint64 gid)
@@ -111,7 +114,7 @@ QList<qint64> Subscribe::groupSubscribedUsers(qint64 gid)
 
 void Subscribe::sendNotification(qint64 gid, const QString &tag, const QString &text)
 {
-    auto groupMetadata = interface()->getGroupMetadata(gid);
+    auto groupMetadata = interface()->metadata()->groupMetadata(gid);
     auto broadcastString = tr("Notification from %1 (%2):\n%3").arg(groupMetadata.title()).arg(tag).arg(text);
 
     interface()->sendBroadcast(groupSubscribedUsers(gid), broadcastString);

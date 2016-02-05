@@ -6,6 +6,7 @@
 #include "modules/help/help.h"
 #include "modules/subscribe/subscribe.h"
 #include "modules/config/configmodule.h"
+#include "modules/group/groupmodule.h"
 
 #include <telegram.h>
 
@@ -31,8 +32,8 @@ int main(int argc, char *argv[])
     app.setApplicationVersion(Bot::version());
 
     qputenv("QT_LOGGING_RULES", "tg.*=false");
-    qputenv("QT_LOGGING_RULES", "tg.*=false\nbot.*.debug=false");
-    //qputenv("DEBUG", "true");
+    //qputenv("QT_LOGGING_RULES", "tg.*=false\nbot.*.debug=false");
+    qputenv("DEBUG", "true");
 
     Database database;
 
@@ -41,6 +42,7 @@ int main(int argc, char *argv[])
     bot.installModule(new Help);
     bot.installModule(new Subscribe);
     bot.installModule(new ConfigModule);
+    bot.installModule(new GroupModule);
     bot.init();
 
     return app.exec();

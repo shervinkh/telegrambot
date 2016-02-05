@@ -27,6 +27,12 @@ BInputMessage::BInputMessage(qint64 id, qint64 userId, qint64 chatId, qint64 dat
     mReplyFromUser = 0;
     mMessageMediaType = messageMediaType;
     mAccessLevel = accessLevel;
+    mPM = (mChatId == 0);
+}
+
+void BInputMessage::setGroupChat(qint64 gid)
+{
+    mChatId = gid;
 }
 
 void BInputMessage::setReplyData(qint64 replyUser, const QString &replyMessage)

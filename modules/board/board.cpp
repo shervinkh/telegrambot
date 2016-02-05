@@ -69,7 +69,7 @@ void Board::onNewMessage(BInputMessage message)
     {
         auto args = message.getArgumentsArray();
         QString response;
-        auto pm = false;
+        auto pm = message.isPrivate();
 
         if (message.command() == "board")
         {

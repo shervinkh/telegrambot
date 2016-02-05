@@ -28,11 +28,8 @@ SOURCES += main.cpp \
     botinterface.cpp \
     core/core_data_store/coredatastore.cpp \
     core/core_model/coremodel.cpp \
-    help/modulehelp.cpp \
-    help/modulehelpusage.cpp \
     modules/help/help.cpp \
     modules/subscribe/subscribe.cpp \
-    groupmetadata.cpp \
     model.cpp \
     modelfield.cpp \
     modelobject.cpp \
@@ -41,7 +38,13 @@ SOURCES += main.cpp \
     botconfig.cpp \
     configfield.cpp \
     modules/config/configmodule.cpp \
-    core/core_config/coreconfig.cpp
+    core/core_config/coreconfig.cpp \
+    modules/group/groupmodule.cpp \
+    core/metadata/groupmetadata.cpp \
+    core/metadata/metadata.cpp \
+    core/help/modulehelp.cpp \
+    core/help/modulehelpusage.cpp \
+    core/core_module/coremodule.cpp
 
 HEADERS += \
     bot.h \
@@ -55,11 +58,8 @@ HEADERS += \
     botinterface.h \
     core/core_data_store/coredatastore.h \
     core/core_model/coremodel.h \
-    help/modulehelp.h \
-    help/modulehelpusage.h \
     modules/help/help.h \
     modules/subscribe/subscribe.h \
-    groupmetadata.h \
     model.h \
     modelfield.h \
     modelobject.h \
@@ -68,7 +68,13 @@ HEADERS += \
     botconfig.h \
     configfield.h \
     modules/config/configmodule.h \
-    core/core_config/coreconfig.h
+    core/core_config/coreconfig.h \
+    modules/group/groupmodule.h \
+    core/metadata/groupmetadata.h \
+    core/metadata/metadata.h \
+    core/help/modulehelp.h \
+    core/help/modulehelpusage.h \
+    core/core_module/coremodule.h
 
 LIBS += -lssl -lcrypto -lz -lqtelegram-ae -lhiredis
 INCLUDEPATH += /usr/include/libqtelegram-ae $$OUT_PWD/$$DESTDIR/include/libqtelegram-ae

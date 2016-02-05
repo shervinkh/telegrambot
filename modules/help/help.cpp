@@ -42,7 +42,7 @@ QString Help::helpString()
 void Help::onNewMessage(BInputMessage message)
 {
     QString response;
-    auto inpm = !message.chatId();
+    auto inpm = message.isPrivate();
 
     if (message.command() == "help")
     {

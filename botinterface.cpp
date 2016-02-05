@@ -6,12 +6,10 @@
 #include "database.h"
 #include "redis.h"
 
-#include <QMetaProperty>
-
 BotInterface::BotInterface(Bot *bot, QObject *parent)
                            : QObject(parent), mBot(bot)
 {
-
+    mMetadata = new Metadata(mBot->mMetaRedis, this);
 }
 
 QString BotInterface::aboutText()
@@ -31,17 +29,6 @@ Module *BotInterface::getModule(const QString &name)
             return module;
 
     return Q_NULLPTR;
-}
-
-GroupMetadata BotInterface::getGroupMetadata(qint64 gid)
-{
-    if (!mBot->mMetaRedis->exists(QString("chat#%1").arg(gid)).toBool())
-        return GroupMetadata();
-
-    auto title = mBot->mMetaRedis->hget(QString("chat#%1").arg(gid), "title").toString();
-    auto adminId = mBot->mMetaRedis->hget(QString("chat#%1").arg(gid), "admin").toLongLong();
-
-    return GroupMetadata(gid, title, adminId);
 }
 
 void BotInterface::executeDatabaseQuery(QSqlQuery &query)

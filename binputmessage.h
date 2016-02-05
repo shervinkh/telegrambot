@@ -22,6 +22,7 @@ private:
     QString mReplyFromMessage;
     int mMessageMediaType;
     AccessLevel mAccessLevel;
+    bool mPM;
 
 public:
 
@@ -35,6 +36,7 @@ public:
     QString getStringFromArgument(int whichArgument) const;
 
     void setReplyData(qint64 replyUser, const QString &replyMessage);
+    void setGroupChat(qint64 gid);
 
     qint64 id() const { return mId; }
     qint64 userId() const { return mUserId; }
@@ -49,6 +51,7 @@ public:
     int messageMediaType() const { return mMessageMediaType; }
     bool isAdmin() const { return mAccessLevel == Admin || mAccessLevel == Superuser; }
     bool isSuperuser() const { return mAccessLevel == Superuser; }
+    bool isPrivate() const { return mPM; }
 };
 
 #endif // BMESSAGE_H

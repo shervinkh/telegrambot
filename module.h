@@ -6,7 +6,7 @@
 #include "bot.h"
 #include "redis.h"
 #include "botconfig.h"
-#include "help/modulehelp.h"
+#include "core/help/modulehelp.h"
 
 #include <QObject>
 #include <QVariant>
@@ -69,7 +69,7 @@ public:
 
     virtual void onNewMessage(BInputMessage message) { Q_UNUSED(message); }
 
-    virtual void customCommand(const QString &command, const QList<QVariant> &args) { Q_UNUSED(command); Q_UNUSED(args); }
+    virtual QVariant customCommand(const QString &command, const QList<QVariant> &args) { Q_UNUSED(command); Q_UNUSED(args); return QVariant(); }
 
     //Model Interface
     BotInterface *interface() { return mBotInterface; }

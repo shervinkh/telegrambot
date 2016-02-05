@@ -20,7 +20,7 @@ public:
     Subscribe();
     void init() override;
     void onNewMessage(BInputMessage message) override;
-    void customCommand(const QString &command, const QList<QVariant> &args) override;
+    QVariant customCommand(const QString &command, const QList<QVariant> &args) override;
 };
 
 #endif // SUBSCRIBE_H

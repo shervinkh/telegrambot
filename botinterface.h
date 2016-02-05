@@ -5,16 +5,19 @@
 #include <QSqlQuery>
 
 #include "bot.h"
-#include "groupmetadata.h"
 #include "model.h"
+#include "core/metadata/metadata.h"
 #include "botconfig.h"
 #include "modelobject.h"
+
+class Metadata;
 
 class BotInterface : public QObject
 {
     Q_OBJECT
 private:
     Bot *mBot;
+    Metadata *mMetadata;
 
     InputPeer getPeer(qint64 id, bool chat);
 
@@ -25,7 +28,7 @@ public:
     bool debug();
 
     Module *getModule(const QString &name);
-    GroupMetadata getGroupMetadata(qint64 gid);
+    Metadata *metadata() {return mMetadata;}
 
     QSqlQuery executeDatabaseQuery(const QString &query);
     void executeDatabaseQuery(QSqlQuery &query);
