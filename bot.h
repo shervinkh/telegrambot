@@ -48,6 +48,8 @@ private:
     //MetaData
     qint64 mSuperuserId;
     qint64 mMetadataStart = -1;
+    qint64 mMetadataDate = -1;
+    InputPeer mMetadataPeer;
     QList<qint64> mLinkdataList;
     void updateMetadata();
     void updateNextMetadata();
@@ -132,6 +134,7 @@ public slots:
 
     //Error
     void onError(qint64 id, qint32 errorCode, QString errorText);
+    void onMessagesGetFullChatError(qint64 id, qint32 errorCode, QString errorText);
 
     //Updates
     void onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats, qint32 date, qint32 seq);

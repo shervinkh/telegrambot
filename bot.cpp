@@ -50,7 +50,9 @@ Bot::Bot(Database *database, qint64 superuserId, QObject *parent)
     //Messages
     connect(mTelegram, &Telegram::messagesGetMessagesAnswer, this, &Bot::onMessagesGetMessagesAnswer);
     connect(mTelegram, &Telegram::messagesGetDialogsAnswer, this, &Bot::onMessagesGetDialogsAnswer);
+    connect(mTelegram, &Telegram::messagesGetDialogsError, this, &Bot::onError);
     connect(mTelegram, &Telegram::messagesGetFullChatAnswer, this, &Bot::onMessagesGetFullChatAnswer);
+    connect(mTelegram, &Telegram::messagesGetFullChatError, this, &Bot::onMessagesGetFullChatError);
     connect(mTelegram, &Telegram::messagesSendMessageAnswer, this, &Bot::onMessagesSendMessageAnswer);
 
     //Error
@@ -79,17 +81,19 @@ void Bot::updateMetadata()
     mMetaRedis->del("groups");
     mMetaRedis->del("users");
     mMetadataStart = 0;
+    mMetadataDate = 0;
+    mMetadataPeer = InputPeer();
     updateNextMetadata();
 }
 
 void Bot::updateNextMetadata()
 {
-    QTimer::singleShot(1500, this, &Bot::updateNextMetadataImp);
+    QTimer::singleShot(2600, this, &Bot::updateNextMetadataImp);
 }
 
 void Bot::updateNextMetadataImp()
 {
-    mTelegram->messagesGetDialogs(0, mMetadataStart, InputPeer(), METADATA_UPDATE_SLICE);
+    mTelegram->messagesGetDialogs(mMetadataDate, mMetadataStart, mMetadataPeer, METADATA_UPDATE_SLICE);
 }
 
 void Bot::updateUserGroupLinks()
@@ -313,9 +317,34 @@ void Bot::onMessagesGetDialogsAnswer(qint64 id, const MessagesDialogs &dialogs)
     foreach (User u, dialogs.users())
         eatUserData(u);
 
+    qint32 minDate = dialogs.messages().first().date();
+    foreach (auto message, dialogs.messages()) {
+        minDate = qMin(minDate, message.date());
+    }
+
     if (mMetadataStart + dialogs.dialogs().size() < dialogs.count())
     {
         mMetadataStart += dialogs.dialogs().size();
+        mMetadataDate = minDate;
+
+        InputPeer lastInputPeer;
+        auto lastPeer = dialogs.dialogs().last().peer();
+        switch (lastPeer.classType()) {
+        case Peer::typePeerChat:
+            lastInputPeer.setClassType(InputPeer::typeInputPeerChat);
+            break;
+        case Peer::typePeerUser:
+            lastInputPeer.setClassType(InputPeer::typeInputPeerUser);
+            break;
+        case Peer::typePeerChannel:
+            lastInputPeer.setClassType(InputPeer::typeInputPeerChannel);
+            break;
+        }
+        lastInputPeer.setChannelId(lastPeer.channelId());
+        lastInputPeer.setChatId(lastPeer.chatId());
+        lastInputPeer.setUserId(lastPeer.userId());
+        mMetadataPeer = lastInputPeer;
+
         updateNextMetadata();
     }
     else
@@ -335,6 +364,15 @@ void Bot::onMessagesGetFullChatAnswer(qint64 id, const MessagesChatFull &chats)
     eatChatParticipantsData(chats.fullChat().participants());
 
     updateNextGroupLinks();
+}
+
+void Bot::onMessagesGetFullChatError(qint64 id, qint32 errorCode, QString errorText)
+{
+    Q_UNUSED(id);
+    Q_UNUSED(errorCode);
+
+    if (errorText == "CHAT_ID_INVALID")
+        updateNextGroupLinks();
 }
 
 void Bot::onMessagesSendMessageAnswer(qint64 id, const UpdatesType &update)
@@ -757,7 +795,6 @@ void Bot::cronTask()
     qCInfo(BOT_CORE) << tr("Running Cron (%1)").arg(QDateTime::currentDateTime().toString());
 
     qCInfo(BOT_CORE) << tr("Sending Keep-Alive...");
-    mTelegram->wake();
     mTelegram->accountUpdateStatus(false);
 
     mTimer->start(60000);
