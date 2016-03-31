@@ -116,19 +116,16 @@ public:
 public slots:
     //Auth
     void onAuthNeeded();
-    void onAuthCheckPhoneAnswer(qint64 id, bool phoneRegistered);
-    void onAuthSendCodeAnswer(qint64 id, bool phoneRegistered, qint32 sendCallTimeout);
+    void onAuthCheckPhoneAnswer(qint64 id, const AuthCheckedPhone &auth);
+    void onAuthSendCodeAnswer(qint64 id, const AuthSentCode &auth);
     void onAuthSignInError(qint64 id, qint32 errorCode, const QString &errorText);
     void onAuthLoggedIn();
 
     //Messages
-    void onMessagesGetMessagesAnswer(qint64 id, qint32 sliceCount, const QList<Message> &messages,
-                                   const QList<Chat> &chats, const QList<User> &users);
-    void onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const QList<Chat> &chats, const QList<User> &users);
-    void onMessagesGetDialogsAnswer(qint64 id, qint32 sliceCount, const QList<Dialog> &dialogs,
-                                    const QList<Message> &messages, const QList<Chat> &chats, const QList<User> &users);
-    void onMessagesSendMessageAnswer(qint64 id, qint32 msgId, qint32 date, const MessageMedia &media, qint32 pts,
-                                     qint32 pts_count, qint32 seq, const QList<ContactsLink> &links);
+    void onMessagesGetMessagesAnswer(qint64 id, const MessagesMessages &messages);
+    void onMessagesGetFullChatAnswer(qint64 id, const MessagesChatFull &chats);
+    void onMessagesGetDialogsAnswer(qint64 id, const MessagesDialogs &dialogs);
+    void onMessagesSendMessageAnswer(qint64 id, const UpdatesType &update);
 
     //Stated Messages
     QString decodeMessageAction(MessageAction state);
@@ -141,10 +138,10 @@ public slots:
     void onUpdatesCombined(QList<Update> updates, QList<User> users, QList<Chat> chats, qint32 date, qint32 seqStart, qint32 seq);
     void onUpdateShort(Update update, qint32 date);
     void onUpdateShortMessage(qint32 id, qint32 userid, const QString &message, qint32 pts, qint32 pts_count,
-                            qint32 date, qint32 fwd_from_id, qint32 fwd_date, qint32 reply_to_msg_id,
+                            qint32 date, Peer fwd_from_id, qint32 fwd_date, qint32 reply_to_msg_id,
                             bool unread, bool out);
     void onUpdateShortChatMessage(qint32 id, qint32 fromId, qint32 chatId, const QString &message, qint32 pts,
-                                qint32 pts_count, qint32 date, qint32 fwd_from_id, qint32 fwd_date,
+                                qint32 pts_count, qint32 date, Peer fwd_from_id, qint32 fwd_date,
                                 qint32 reply_to_msg_id, bool unread, bool out);
     void onUpdatesTooLong();
 

@@ -77,5 +77,5 @@ HEADERS += \
     core/core_module/coremodule.h
 
 LIBS += -lssl -lcrypto -lz -lqtelegram-ae -lhiredis
-INCLUDEPATH += /usr/include/libqtelegram-ae $$OUT_PWD/$$DESTDIR/include/libqtelegram-ae
-INCLUDEPATH += /usr/include/openssl/ $$OUT_PWD/$$DESTDIR/include/openssl
+INCLUDEPATH += /usr/include/libqtelegram-ae
+INCLUDEPATH += /usr/include/openssl/

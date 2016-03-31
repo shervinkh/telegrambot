@@ -52,7 +52,7 @@ InputPeer BotInterface::getPeer(qint64 id, bool chat)
     }
     else
     {
-        peer.setClassType(InputPeer::typeInputPeerForeign);
+        peer.setClassType(InputPeer::typeInputPeerUser);
         peer.setUserId(id);
         peer.setAccessHash(mBot->mMetaRedis->hget(QString("user#%1").arg(id), "access_hash").toLongLong());
     }
@@ -65,7 +65,9 @@ void BotInterface::sendMessage(qint64 id, bool chat, const QString &message, qin
     if (message.isEmpty())
         return;
 
-    mBot->mTelegram->messagesSendMessage(getPeer(id, chat), BotUtils::secureRandomLong(), message, replyTo);
+    mBot->mTelegram->messagesSendMessage(true, false, getPeer(id, chat), replyTo, message,
+                                         BotUtils::secureRandomLong(), ReplyMarkup(),
+                                         QList<MessageEntity>());
 }
 
 void BotInterface::sendBroadcast(const QList<qint64> &users, const QString &message)
@@ -80,7 +82,7 @@ void BotInterface::forwardBroadcast(const QList<qint64> &users, qint64 msgId)
 
 void BotInterface::forwardMessage(qint64 id, bool chat, qint64 msgId)
 {
-    mBot->mTelegram->messagesForwardMessage(getPeer(id, chat), msgId);
+    mBot->mTelegram->messagesForwardMessage(getPeer(id, chat), msgId, BotUtils::secureRandomLong());
 }
 
 Model *BotInterface::newModel(const QString &section, const QString &name, qint64 version, const QDate &versionDate)

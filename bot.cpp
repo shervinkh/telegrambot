@@ -89,7 +89,7 @@ void Bot::updateNextMetadata()
 
 void Bot::updateNextMetadataImp()
 {
-    mTelegram->messagesGetDialogs(mMetadataStart, 0, METADATA_UPDATE_SLICE);
+    mTelegram->messagesGetDialogs(0, mMetadataStart, InputPeer(), METADATA_UPDATE_SLICE);
 }
 
 void Bot::updateUserGroupLinks()
@@ -143,7 +143,7 @@ BInputMessage::AccessLevel Bot::userAccessLevel(qint64 gid, qint64 uid)
 //Start DataGetter
 void Bot::eatUserData(const User &user)
 {
-    if (user.classType() != User::typeUserDeleted && user.classType() != User::typeUserEmpty)
+    if (user.classType() != User::typeUserEmpty)
     {
         qCDebug(BOT_CORE) << "Eating user: " << user.id();
         mMetaRedis->sadd("users", user.id());
@@ -187,12 +187,15 @@ void Bot::eatChatParticipantsData(const ChatParticipants &chatParticipants)
         qCDebug(BOT_CORE) << "Eating chat full: " << chatId;
 
         auto chatDataKey = QString("chat#%1").arg(chatId);
-        mMetaRedis->hset(chatDataKey, "admin", chatParticipants.adminId());
+        mMetaRedis->hset(chatDataKey, "admin", 0);
 
         auto chatMembersDataKey = QString("chat#%1.users").arg(chatId);
         mMetaRedis->del(chatMembersDataKey);
         foreach (ChatParticipant chatParticipant, chatParticipants.participants())
         {
+            if (chatParticipant.inviterId() == 0)
+                mMetaRedis->hset(chatDataKey, "admin", chatParticipant.userId());
+
             mMetaRedis->hset(chatMembersDataKey, QString::number(chatParticipant.userId()), chatParticipant.inviterId());
             mMetaRedis->sadd(QString("user#%1.groups").arg(chatParticipant.userId()), chatId);
         }
@@ -221,27 +224,27 @@ void Bot::onAuthNeeded()
 {
     output << "Authentication Needed!" << endl << flush;
     mCurrentOperation = AuthCheckPhone;
+
     mTelegram->authCheckPhone();
 }
 
-void Bot::onAuthCheckPhoneAnswer(qint64 id, bool phoneRegistered)
+void Bot::onAuthCheckPhoneAnswer(qint64 id, const AuthCheckedPhone &auth)
 {
     Q_UNUSED(id);
 
     mCurrentOperation = None;
-    qCInfo(BOT_CORE) << "Phone Checked: " << phoneRegistered;
+    qCInfo(BOT_CORE) << "Phone Checked: " << auth.phoneRegistered();
 
-    if (!phoneRegistered)
+    if (!auth.phoneRegistered())
         qFatal("Phone number's not registered on telegram");
 
     mTelegram->authSendCode();
 }
 
-void Bot::onAuthSendCodeAnswer(qint64 id, bool phoneRegistered, qint32 sendCallTimeout)
+void Bot::onAuthSendCodeAnswer(qint64 id, const AuthSentCode &auth)
 {
     Q_UNUSED(id);
-    Q_UNUSED(phoneRegistered);
-    Q_UNUSED(sendCallTimeout);
+    Q_UNUSED(auth);
 
     output << "Please enter the code you got from telegram: " << endl << flush;
 
@@ -275,17 +278,13 @@ void Bot::onAuthSignInError(qint64 id, qint32 errorCode, const QString &errorTex
 //End Auth
 
 //Start Messages
-void Bot::onMessagesGetMessagesAnswer(qint64 id, qint32 sliceCount, const QList<Message> &messages,
-                                      const QList<Chat> &chats, const QList<User> &users)
+void Bot::onMessagesGetMessagesAnswer(qint64 id, const MessagesMessages &messages)
 {
     Q_UNUSED(id)
-    Q_UNUSED(sliceCount)
-    Q_UNUSED(chats)
-    Q_UNUSED(users)
 
-    if (!messages.isEmpty())
+    if (!messages.messages().isEmpty())
     {
-        Message message = messages.first();
+        Message message = messages.messages().first();
         qint64 messageId = message.id();
         if (pendingForReplyFromQueue.contains(messageId))
         {
@@ -301,26 +300,22 @@ void Bot::onMessagesGetMessagesAnswer(qint64 id, qint32 sliceCount, const QList<
     }
 }
 
-void Bot::onMessagesGetDialogsAnswer(qint64 id, qint32 sliceCount, const QList<Dialog> &dialogs, const QList<Message> &messages,
-                                     const QList<Chat> &chats, const QList<User> &users)
+void Bot::onMessagesGetDialogsAnswer(qint64 id, const MessagesDialogs &dialogs)
 {
     Q_UNUSED(id);
-    Q_UNUSED(messages);
 
     qCInfo(BOT_CORE) << QString("Got entries %1 - %2 of total %3")
-                        .arg(mMetadataStart + 1).arg(mMetadataStart + dialogs.size()).arg(sliceCount);
+                        .arg(mMetadataStart + 1).arg(mMetadataStart + dialogs.dialogs().size()).arg(dialogs.count());
 
-    int count = dialogs.size();
-
-    foreach (Chat c, chats)
+    foreach (Chat c, dialogs.chats())
         eatChatData(c);
 
-    foreach (User u, users)
+    foreach (User u, dialogs.users())
         eatUserData(u);
 
-    if (mMetadataStart + count < sliceCount)
+    if (mMetadataStart + dialogs.dialogs().size() < dialogs.count())
     {
-        mMetadataStart += count;
+        mMetadataStart += dialogs.dialogs().size();
         updateNextMetadata();
     }
     else
@@ -331,33 +326,24 @@ void Bot::onMessagesGetDialogsAnswer(qint64 id, qint32 sliceCount, const QList<D
     }
 }
 
-void Bot::onMessagesGetFullChatAnswer(qint64 id, const ChatFull &chatFull, const QList<Chat> &chats, const QList<User> &users)
+void Bot::onMessagesGetFullChatAnswer(qint64 id, const MessagesChatFull &chats)
 {
     Q_UNUSED(id);
-    Q_UNUSED(chats);
-    foreach (auto user, users)
+    foreach (auto user, chats.users())
         eatUserData(user);
 
-    eatChatParticipantsData(chatFull.participants());
+    eatChatParticipantsData(chats.fullChat().participants());
 
     updateNextGroupLinks();
 }
 
-void Bot::onMessagesSendMessageAnswer(qint64 id, qint32 msgId, qint32 date, const MessageMedia &media, qint32 pts,
-                                      qint32 pts_count, qint32 seq, const QList<ContactsLink> &links)
+void Bot::onMessagesSendMessageAnswer(qint64 id, const UpdatesType &update)
 {
-    Q_UNUSED(date)
-    Q_UNUSED(pts)
-    Q_UNUSED(media)
-    Q_UNUSED(pts_count)
-    Q_UNUSED(seq)
-    Q_UNUSED(links)
-
     if (mBroadcastUsers.contains(id))
     {
         auto usersList = mBroadcastUsers[id];
         mBroadcastUsers.remove(id);
-        continueBroadcast(msgId, usersList);
+        continueBroadcast(update.id(), usersList);
     }
 }
 //End Messages
@@ -368,7 +354,8 @@ void Bot::sendBroadcast(const QList<qint64> &users, const QString &message)
     InputPeer me;
     me.setClassType(InputPeer::typeInputPeerSelf);
 
-    auto reqId = mTelegram->messagesSendMessage(me, BotUtils::secureRandomLong(), message);
+    auto reqId = mTelegram->messagesSendMessage(true, false, me, 0, message,  BotUtils::secureRandomLong(),
+                                                ReplyMarkup(), QList<MessageEntity>());
     mBroadcastUsers[reqId] = users;
 }
 
@@ -377,11 +364,11 @@ void Bot::continueBroadcast(qint64 msgId, const QList<qint64> &users)
     foreach (auto user, users)
     {
         InputPeer peer;
-        peer.setClassType(InputPeer::typeInputPeerForeign);
+        peer.setClassType(InputPeer::typeInputPeerUser);
         peer.setUserId(user);
         peer.setAccessHash(mMetaRedis->hget(QString("user#%1").arg(user), "access_hash").toLongLong());
 
-        mTelegram->messagesForwardMessage(peer, msgId);
+        mTelegram->messagesForwardMessage(peer, msgId, BotUtils::secureRandomLong());
     }
 }
 //End Broadcast
@@ -413,15 +400,11 @@ QString Bot::decodeMessageAction(MessageAction state)
         case MessageAction::typeMessageActionEmpty:
             type = "Empty";
             break;
-        case MessageAction::typeMessageActionGeoChatCheckin:
-            type = "GeoChat Checkin";
-            break;
-        case MessageAction::typeMessageActionGeoChatCreate:
-            type = "GeoChat Create";
-            break;
         default:
             type = "N/S";
             break;
+
+        //TODO: ADD New
     }
 
     qCDebug(BOT_CORE) << ", title=" << state.title() << ", photo=" << state.photo().id() << ", userId=" << state.userId() <<
@@ -459,9 +442,6 @@ void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats,
         QString type;
         switch (update.message().media().classType())
         {
-            case MessageMedia::typeMessageMediaAudio:
-                type = "audio";
-                break;
             case MessageMedia::typeMessageMediaContact:
                 type = "contact";
                 break;
@@ -476,9 +456,6 @@ void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats,
                 break;
             case MessageMedia::typeMessageMediaPhoto:
                 type = "photo";
-                break;
-            case MessageMedia::typeMessageMediaVideo:
-                type = "video";
                 break;
             default:
                 type = "N/S";
@@ -512,8 +489,9 @@ void Bot::onUpdates(QList<Update> updates, QList<User> users, QList<Chat> chats,
             {
                 auto gid = chats.isEmpty() ? 0 : chats.first().id();
                 auto accessLevel = userAccessLevel(gid, message.fromId());
+
                 BInputMessage newMessage(message.id(), message.fromId(), gid, message.date(),
-                                         message.message(), message.fwdFromId(), message.fwdDate(), message.replyToMsgId(),
+                                         message.message(), message.fwdFromId().userId(), message.fwdDate(), message.replyToMsgId(),
                                          message.media().classType(), accessLevel);
                 eventNewMessage(newMessage);
             }
@@ -556,7 +534,7 @@ void Bot::onUpdateShort(Update update, qint32 date)
 }
 
 void Bot::onUpdateShortMessage(qint32 id, qint32 userid, const QString &message, qint32 pts,
-                               qint32 pts_count, qint32 date, qint32 fwd_from_id, qint32 fwd_date,
+                               qint32 pts_count, qint32 date, Peer fwd_from_id, qint32 fwd_date,
                                qint32 reply_to_msg_id, bool unread, bool out)
 {
     Q_UNUSED(pts)
@@ -564,13 +542,13 @@ void Bot::onUpdateShortMessage(qint32 id, qint32 userid, const QString &message,
     Q_UNUSED(unread)
     Q_UNUSED(out)
 
-    BInputMessage newMessage(id, userid, 0, date, message, fwd_from_id, fwd_date, reply_to_msg_id,
+    BInputMessage newMessage(id, userid, 0, date, message, fwd_from_id.userId(), fwd_date, reply_to_msg_id,
                              MessageMedia::typeMessageMediaEmpty, userAccessLevel(0, userid));
     eventNewMessage(newMessage);
 }
 
 void Bot::onUpdateShortChatMessage(qint32 id, qint32 fromId, qint32 chatId, const QString &message,
-                                   qint32 pts, qint32 pts_count, qint32 date, qint32 fwd_from_id,
+                                   qint32 pts, qint32 pts_count, qint32 date, Peer fwd_from_id,
                                    qint32 fwd_date, qint32 reply_to_msg_id, bool unread, bool out)
 {
     Q_UNUSED(pts)
@@ -578,7 +556,7 @@ void Bot::onUpdateShortChatMessage(qint32 id, qint32 fromId, qint32 chatId, cons
     Q_UNUSED(unread)
     Q_UNUSED(out)
 
-    BInputMessage newMessage(id, fromId, chatId, date, message, fwd_from_id, fwd_date, reply_to_msg_id,
+    BInputMessage newMessage(id, fromId, chatId, date, message, fwd_from_id.userId(), fwd_date, reply_to_msg_id,
                              MessageMedia::typeMessageMediaEmpty, userAccessLevel(chatId, fromId));
     eventNewMessage(newMessage);
 }
@@ -619,8 +597,6 @@ QString Bot::updateCode(int code)
         return "New Authorization";
     case Update::typeUpdateNewEncryptedMessage:
         return "New Encrypted Message";
-    case Update::typeUpdateNewGeoChatMessage:
-        return "New Geo Chat Message";
     case Update::typeUpdateNewMessage:
         return "New Message";
     case Update::typeUpdateNotifySettings:
@@ -647,6 +623,8 @@ QString Bot::updateCode(int code)
         return "User Typing";
     default:
         return "Unknown";
+
+        //TODO: ADD New
     }
 }
 
